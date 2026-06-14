@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#0A1628">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>CO₂ Mérő – Ranglista</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: #0A1628;
+    color: #EDF4FB;
+    font-family: -apple-system, 'Segoe UI', sans-serif;
+    min-height: 100vh;
+    padding-bottom: 80px;
+  }
+  header {
+    background: #0F2040;
+    border-bottom: 1px solid #1E3A5F;
+    padding: 16px 20px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  header a {
+    color: #5C7A99;
+    text-decoration: none;
+    font-size: 1.3rem;
+    line-height: 1;
+  }
+  header h1 { font-size: 1.1rem; color: #EDF4FB; }
+  .subtitle-head { font-size: 0.78rem; color: #5C7A99; }
+
+  .podium {
+    display: flex;
+    justify-content: center;
+    align-items: flex-end;
+    gap: 12px;
+    padding: 28px 20px 20px;
+  }
+  .podium-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+  }
+  .podium-avatar {
+    width: 56px; height: 56px;
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1.5rem;
+    font-weight: bold;
+    border: 3px solid transparent;
+  }
+  .podium-item.p1 .podium-avatar { background: #2a2000; border-color: #FFD700; font-size: 1.8rem; width: 68px; height: 68px; }
+  .podium-item.p2 .podium-avatar { background: #1a2a1a; border-color: #C0C0C0; }
+  .podium-item.p3 .podium-avatar { background: #2a1500; border-color: #CD7F32; }
+  .podium-name { font-size: 0.78rem; color: #EDF4FB; font-weight: 600; max-width: 80px; text-align: center; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .podium-xp { font-size: 0.72rem; color: #00E5C3; }
+  .podium-block {
+    border-radius: 8px 8px 0 0;
+    width: 72px;
+  }
+  .p1 .podium-block { background: #FFD70033; height: 60px; }
+  .p2 .podium-block { background: #C0C0C022; height: 40px; }
+  .p3 .podium-block { background: #CD7F3222; height: 28px; }
+  .crown { font-size: 1.2rem; }
+
+  .list-section { padding: 0 16px; }
+  .list-header {
+    display: grid;
+    grid-template-columns: 32px 1fr 64px 64px 64px;
+    gap: 8px;
+    padding: 8px 12px;
+    color: #5C7A99;
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+  .row {
+    display: grid;
+    grid-template-columns: 32px 1fr 64px 64px 64px;
+    gap: 8px;
+    align-items: center;
+    background: #0F2040;
+    border: 1px solid #1E3A5F;
+    border-radius: 12px;
+    padding: 12px;
+    margin-bottom: 8px;
+    transition: border-color 0.2s;
+  }
+  .row.en {
+    border-color: #00E5C3;
+    background: #00E5C308;
+  }
+  .rank { font-size: 0.9rem; font-weight: bold; color: #5C7A99; text-align: center; }
+  .user-info { min-width: 0; }
+  .user-name {
+    font-size: 0.9rem;
+    font-weight: 600;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .user-rang { font-size: 0.75rem; color: #5C7A99; }
+  .cell { text-align: center; font-size: 0.85rem; }
+  .cell .val { font-weight: 600; }
+  .cell .lbl { font-size: 0.68rem; color: #5C7A99; }
+  .xp-val { color: #00E5C3; }
+  .streak-val { color: #FF9800; }
+  .co2-val { color: #64B5F6; }
+
+  .empty {
+    text-align: center;
+    padding: 40px 20px;
+    color: #5C7A99;
+  }
+  .me-badge {
+    display: inline-block;
+    background: #00E5C322;
+    color: #00E5C3;
+    font-size: 0.65rem;
+    padding: 2px 6px;
+    border-radius: 4px;
+    margin-left: 6px;
+    vertical-align: middle;
+  }
+
+  /* Desktop */
+  @media (min-width: 700px) {
+    body { padding-bottom: 40px; }
+    header { padding: 20px 40px; }
+    header a { font-size: 1.5rem; }
+    header h1 { font-size: 1.3rem; }
+
+    .podium { padding: 40px 40px 28px; gap: 20px; }
+    .podium-item.p1 .podium-avatar { width: 80px; height: 80px; font-size: 2rem; }
+    .podium-avatar { width: 64px; height: 64px; font-size: 1.7rem; }
+    .podium-block { width: 88px; }
+    .p1 .podium-block { height: 80px; }
+    .p2 .podium-block { height: 56px; }
+    .p3 .podium-block { height: 40px; }
+
+    .list-section {
+      max-width: 900px;
+      margin: 0 auto;
+      padding: 0 32px;
+    }
+    .list-header,
+    .row {
+      grid-template-columns: 48px 1fr 80px 80px 100px;
+      gap: 12px;
+      padding: 14px 20px;
+    }
+    .user-name { font-size: 0.98rem; }
+    .user-rang { font-size: 0.8rem; }
+    .cell .val { font-size: 0.95rem; }
+    .cell .lbl { font-size: 0.72rem; }
+  }
+
+  @media (min-width: 1100px) {
+    .list-section { max-width: 1100px; }
+    .list-header,
+    .row { grid-template-columns: 56px 1fr 100px 100px 120px; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <a href="/dashboard">←</a>
+  <div>
+    <h1>🏆 Ranglista</h1>
+    <div class="subtitle-head">{{ lista|length }} felhasználó • XP alapján</div>
+  </div>
+</header>
+
+{% if lista|length >= 3 %}
+<div class="podium">
+  <!-- 2. hely -->
+  <div class="podium-item p2">
+    <div class="podium-avatar">{{ lista[1].nev[0]|upper }}</div>
+    <div class="podium-name">{{ lista[1].nev }}</div>
+    <div class="podium-xp">{{ lista[1].xp }} XP</div>
+    <div class="podium-block"></div>
+  </div>
+  <!-- 1. hely -->
+  <div class="podium-item p1">
+    <div class="crown">👑</div>
+    <div class="podium-avatar">{{ lista[0].nev[0]|upper }}</div>
+    <div class="podium-name">{{ lista[0].nev }}</div>
+    <div class="podium-xp">{{ lista[0].xp }} XP</div>
+    <div class="podium-block"></div>
+  </div>
+  <!-- 3. hely -->
+  <div class="podium-item p3">
+    <div class="podium-avatar">{{ lista[2].nev[0]|upper }}</div>
+    <div class="podium-name">{{ lista[2].nev }}</div>
+    <div class="podium-xp">{{ lista[2].xp }} XP</div>
+    <div class="podium-block"></div>
+  </div>
+</div>
+{% endif %}
+
+<div class="list-section">
+  <div class="list-header">
+    <div>#</div>
+    <div>Felhasználó</div>
+    <div style="text-align:center">XP</div>
+    <div style="text-align:center">Streak</div>
+    <div style="text-align:center">CO₂/nap</div>
+  </div>
+
+  {% if lista %}
+    {% for u in lista %}
+    <div class="row {% if u.nev == en %}en{% endif %}">
+      <div class="rank">
+        {% if loop.index == 1 %}🥇
+        {% elif loop.index == 2 %}🥈
+        {% elif loop.index == 3 %}🥉
+        {% else %}{{ loop.index }}{% endif %}
+      </div>
+      <div class="user-info">
+        <div class="user-name">
+          {{ u.nev }}
+          {% if u.nev == en %}<span class="me-badge">Te</span>{% endif %}
+        </div>
+        <div class="user-rang">{{ u.rang_emoji }} {{ u.rang }}</div>
+      </div>
+      <div class="cell">
+        <div class="val xp-val">{{ u.xp }}</div>
+        <div class="lbl">XP</div>
+      </div>
+      <div class="cell">
+        <div class="val streak-val">{{ u.streak }}🔥</div>
+        <div class="lbl">nap</div>
+      </div>
+      <div class="cell">
+        <div class="val co2-val">{{ u.atlag_co2 }}</div>
+        <div class="lbl">kg/nap</div>
+      </div>
+    </div>
+    {% endfor %}
+  {% else %}
+    <div class="empty">Még nincsenek felhasználók.</div>
+  {% endif %}
+</div>
+
+</body>
+</html>

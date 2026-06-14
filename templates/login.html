@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#0A1628">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>CO₂ Mérő – Bejelentkezés</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: #0A1628;
+    color: #EDF4FB;
+    font-family: -apple-system, 'Segoe UI', sans-serif;
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+  }
+  .card {
+    background: #0F2040;
+    border: 1px solid #1E3A5F;
+    border-radius: 20px;
+    padding: 40px 32px 32px;
+    width: 100%;
+    max-width: 400px;
+    text-align: center;
+  }
+  .logo { font-size: 52px; margin-bottom: 10px; }
+  h1 { font-size: 1.6rem; color: #00E5C3; margin-bottom: 6px; }
+  .subtitle { color: #5C7A99; margin-bottom: 28px; font-size: 0.9rem; }
+
+  /* Tabs */
+  .tabs {
+    display: flex;
+    background: #0A1628;
+    border-radius: 12px;
+    padding: 4px;
+    margin-bottom: 24px;
+    gap: 4px;
+  }
+  .tab-btn {
+    flex: 1;
+    padding: 11px;
+    border: none;
+    border-radius: 9px;
+    font-size: 0.95rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+    background: transparent;
+    color: #5C7A99;
+  }
+  .tab-btn.active {
+    background: #00E5C3;
+    color: #0A1628;
+  }
+
+  label { display: block; text-align: left; color: #5C7A99; font-size: 0.85rem; margin-bottom: 6px; }
+  input {
+    width: 100%;
+    background: #1A3358;
+    border: 1px solid #1E3A5F;
+    border-radius: 10px;
+    color: #EDF4FB;
+    font-size: 16px;
+    padding: 13px 16px;
+    margin-bottom: 16px;
+    outline: none;
+    transition: border-color 0.2s;
+    -webkit-appearance: none;
+    appearance: none;
+  }
+  input:focus { border-color: #00E5C3; }
+  .btn {
+    width: 100%;
+    background: #00E5C3;
+    color: #0A1628;
+    border: none;
+    border-radius: 10px;
+    font-size: 1rem;
+    font-weight: bold;
+    padding: 14px;
+    cursor: pointer;
+    transition: background 0.2s;
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+  }
+  .btn:active { background: #00b5a0; }
+  .error {
+    background: #FF525222;
+    border: 1px solid #FF5252;
+    border-radius: 10px;
+    color: #FF5252;
+    padding: 12px;
+    margin-bottom: 16px;
+    font-size: 0.9rem;
+  }
+  .info { color: #5C7A99; font-size: 0.82rem; margin-top: 16px; line-height: 1.5; }
+  @media (max-width: 400px) {
+    .card { padding: 28px 20px; border-radius: 16px; }
+    h1 { font-size: 1.4rem; }
+  }
+
+  /* Desktop */
+  @media (min-width: 700px) {
+    body { background: #060F1E; }
+    .card {
+      max-width: 440px;
+      padding: 48px 40px 40px;
+      border-radius: 24px;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+    }
+    .logo { font-size: 64px; }
+    h1 { font-size: 1.9rem; }
+    input { font-size: 15px; }
+    .btn { font-size: 1.05rem; padding: 15px; }
+  }
+</style>
+</head>
+<body>
+<div class="card">
+  <div class="logo">🌍</div>
+  <h1>CO₂ Mérő</h1>
+  <p class="subtitle">Kövesd nyomon szénlábnyomodat</p>
+
+  <div class="tabs">
+    <button class="tab-btn {% if mod == 'belepes' %}active{% endif %}" onclick="setMod('belepes')">Bejelentkezés</button>
+    <button class="tab-btn {% if mod == 'regisztracio' %}active{% endif %}" onclick="setMod('regisztracio')">Regisztráció</button>
+  </div>
+
+  {% if error %}
+  <div class="error">{{ error }}</div>
+  {% endif %}
+
+  <form method="POST" autocomplete="on" id="form">
+    <input type="hidden" name="mod" id="mod" value="{{ mod }}">
+
+    <label>Felhasználónév</label>
+    <input type="text" name="nev" placeholder="pl. kovacs.peter"
+           autocomplete="username" autocorrect="off"
+           autocapitalize="none" spellcheck="false" required>
+
+    <label>Jelszó</label>
+    <input type="password" name="jelszo" placeholder="Jelszó"
+           autocomplete="current-password" required>
+
+    <button class="btn" type="submit" id="submit-btn">
+      {% if mod == 'belepes' %}Bejelentkezés{% else %}Regisztráció{% endif %}
+    </button>
+  </form>
+
+  <p class="info" id="info-text">
+    {% if mod == 'belepes' %}
+      Még nincs fiókod? Kattints a <strong style="color:#00E5C3">Regisztráció</strong> fülre.
+    {% else %}
+      Már van fiókod? Kattints a <strong style="color:#00E5C3">Bejelentkezés</strong> fülre.
+    {% endif %}
+  </p>
+  {% if request.args.get('valtas') %}
+  <p style="margin-top:14px">
+    <a href="/dashboard" style="color:#5C7A99;font-size:0.85rem">← Vissza a fiókodba</a>
+  </p>
+  {% endif %}
+</div>
+
+<script>
+// Ha URL-ben van ?valtas=1, töröljük a session-t (a szerver már megtette)
+function setMod(m) {
+  document.getElementById('mod').value = m;
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  event.target.classList.add('active');
+  document.getElementById('submit-btn').textContent = m === 'belepes' ? 'Bejelentkezés' : 'Regisztráció';
+  document.getElementById('info-text').innerHTML = m === 'belepes'
+    ? 'Még nincs fiókod? Kattints a <strong style="color:#00E5C3">Regisztráció</strong> fülre.'
+    : 'Már van fiókod? Kattints a <strong style="color:#00E5C3">Bejelentkezés</strong> fülre.';
+}
+</script>
+</body>
+</html>

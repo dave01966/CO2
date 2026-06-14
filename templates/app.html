@@ -1,0 +1,1963 @@
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=yes">
+<meta name="theme-color" content="#0A1628">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="CO₂ Mérő">
+<link rel="manifest" href="/manifest.json">
+<title>CO₂ Mérő</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+:root {
+  --bg:#0A1628; --panel:#0F2040; --card:#152A4A; --card2:#1A3358; --card3:#1F3D66;
+  --accent:#00E5C3; --a2:#FF7043; --a3:#FFD54F; --a4:#CE93D8; --a5:#80DEEA;
+  --text:#EDF4FB; --muted:#5C7A99; --danger:#FF5252; --warn:#FF9800; --ok:#00E676;
+  --border:#1E3A5F; --sel:#003D6B;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { background: var(--bg); color: var(--text); font-family: 'Segoe UI', sans-serif; font-size: 15px; }
+a { color: var(--accent); text-decoration: none; }
+
+/* HEADER */
+#header {
+  background: var(--panel);
+  border-bottom: 1px solid var(--border);
+  padding: 10px 16px;
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 10px;
+  position: sticky; top: 0; z-index: 100;
+}
+.header-left { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.app-title { font-size: 1.1rem; font-weight: bold; color: var(--accent); white-space: nowrap; }
+.header-stats { display: flex; gap: 6px; flex-wrap: wrap; font-size: 0.8rem; justify-content: center; }
+.hstat { background: var(--card); border-radius: 8px; padding: 4px 8px; }
+.logout-btn {
+  background: #FF525222; border: 1px solid #FF5252;
+  color: #FF5252; border-radius: 8px; padding: 6px 12px;
+  cursor: pointer; font-size: 0.82rem; white-space: nowrap;
+  flex-shrink: 0;
+}
+.logout-btn:active { background: #FF525244; }
+
+/* NAV */
+#nav {
+  background: var(--panel);
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  overflow-x: auto;
+  scrollbar-width: none;
+  position: sticky; top: var(--header-h, 53px); z-index: 99;
+}
+#nav::-webkit-scrollbar { display: none; }
+.nav-btn {
+  background: transparent;
+  color: var(--muted);
+  border: none;
+  border-bottom: 2px solid transparent;
+  padding: 10px 16px;
+  cursor: pointer;
+  white-space: nowrap;
+  font-size: 0.85rem;
+  transition: color 0.15s;
+}
+.nav-btn:hover { color: var(--text); }
+.nav-btn.active { color: var(--accent); border-bottom-color: var(--accent); font-weight: bold; }
+
+/* MAIN */
+#main {
+  padding: 20px;
+  max-width: 1200px;
+  margin: 0 auto;
+  overflow-y: auto;
+  height: calc(100vh - var(--header-h, 53px) - 44px); /* header + nav */
+  box-sizing: border-box;
+}
+.page { display: none; }
+.page.active { display: block; }
+
+/* Cards */
+.card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 18px; }
+.card2 { background: var(--card2); border: 1px solid var(--border); border-radius: 10px; padding: 14px; }
+.grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.grid3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 14px; }
+.grid4 { display: grid; grid-template-columns: repeat(4,1fr); gap: 12px; }
+@media(max-width:700px){ .grid2,.grid3,.grid4 { grid-template-columns: 1fr 1fr; } }
+@media(max-width:480px){ .grid2,.grid3,.grid4 { grid-template-columns: 1fr; } }
+
+h2 { font-size: 1.1rem; color: var(--accent); margin-bottom: 14px; }
+h3 { font-size: 0.95rem; margin-bottom: 10px; color: var(--text); }
+.muted { color: var(--muted); font-size: 0.85rem; }
+.big-num { font-size: 2rem; font-weight: bold; color: var(--accent); }
+.label { font-size: 0.78rem; color: var(--muted); margin-top: 2px; }
+
+/* Buttons */
+.btn {
+  background: var(--accent); color: var(--bg);
+  border: none; border-radius: 8px;
+  padding: 8px 18px; font-weight: bold; font-size: 0.9rem;
+  cursor: pointer; transition: background 0.15s;
+}
+.btn:hover { background: #00c9a9; }
+.btn-sm { padding: 5px 12px; font-size: 0.82rem; }
+.btn-warn { background: var(--warn); color: #fff; }
+.btn-warn:hover { background: #e68900; }
+.btn-danger { background: var(--danger); color: #fff; }
+.btn-ok { background: var(--ok); color: #0a1628; }
+.btn-ghost {
+  background: transparent; color: var(--muted);
+  border: 1px solid var(--border); border-radius: 8px;
+  padding: 5px 12px; cursor: pointer; font-size: 0.82rem;
+}
+.btn-ghost:hover { color: var(--text); border-color: var(--muted); }
+
+/* Progress bar */
+.progress-bar { background: var(--border); border-radius: 6px; height: 8px; overflow: hidden; }
+.progress-fill { height: 100%; border-radius: 6px; transition: width 0.5s; }
+
+/* Forms */
+.form-group { margin-bottom: 14px; }
+.form-group label { display: block; color: var(--muted); font-size: 0.82rem; margin-bottom: 5px; }
+.form-group input, .form-group textarea, .form-group select {
+  width: 100%; background: var(--card2); border: 1px solid var(--border);
+  border-radius: 8px; color: var(--text); font-size: 0.95rem;
+  padding: 8px 12px; outline: none; transition: border-color 0.15s;
+}
+.form-group input:focus, .form-group textarea:focus { border-color: var(--accent); }
+.form-group textarea { min-height: 100px; resize: vertical; }
+.num-input { width: 90px !important; text-align: right; }
+
+/* Toast */
+#toast {
+  position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
+  background: var(--ok); color: var(--bg);
+  border-radius: 12px; padding: 12px 24px;
+  font-weight: bold; z-index: 9999;
+  display: none; box-shadow: 0 4px 20px rgba(0,0,0,0.4);
+}
+
+/* Heatmap */
+.heatmap-grid { display: flex; flex-direction: column; gap: 3px; }
+.heatmap-row { display: flex; gap: 3px; align-items: center; }
+.heatmap-cell {
+  width: 16px; height: 16px; border-radius: 3px;
+  flex-shrink: 0;
+}
+.heatmap-label { width: 24px; font-size: 10px; color: var(--muted); text-align: right; }
+
+/* Küldetések */
+.quest-card {
+  background: var(--card2); border: 1px solid var(--border);
+  border-radius: 10px; padding: 14px;
+  display: flex; align-items: center; gap: 12px;
+}
+.quest-icon { font-size: 1.8rem; }
+.quest-info { flex: 1; }
+.quest-title { font-size: 0.95rem; }
+.quest-meta { font-size: 0.78rem; color: var(--muted); margin-top: 3px; }
+.quest-done { opacity: 0.5; }
+
+/* Bolt */
+.tema-card {
+  background: var(--card2); border: 2px solid var(--border);
+  border-radius: 12px; padding: 16px; text-align: center;
+  cursor: pointer; transition: border-color 0.2s;
+}
+.tema-card:hover { border-color: var(--accent); }
+.tema-card.megvett { border-color: var(--ok); }
+.tema-card.aktiv { border-color: var(--accent); background: var(--sel); }
+.tema-name { font-weight: bold; margin: 8px 0 4px; }
+.tema-ar { color: var(--a3); font-size: 0.85rem; }
+
+/* Kategória sávok */
+.kat-bar { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+.kat-bar-label { width: 160px; font-size: 0.82rem; flex-shrink: 0; }
+.kat-bar-fill { height: 10px; border-radius: 5px; min-width: 2px; transition: width 0.5s; }
+.kat-bar-val { font-size: 0.82rem; color: var(--muted); }
+
+/* Napló dátum lista */
+.naplo-item {
+  background: var(--card2); border-radius: 8px;
+  padding: 10px 14px; cursor: pointer; margin-bottom: 6px;
+  border: 1px solid var(--border);
+}
+.naplo-item:hover { border-color: var(--accent); }
+
+/* Loading */
+.loading { text-align: center; color: var(--muted); padding: 40px; }
+
+/* Stat table */
+.stat-row { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid var(--border); }
+.stat-row:last-child { border-bottom: none; }
+
+/* Range input */
+input[type=range] { accent-color: var(--accent); width: 100%; }
+
+/* Scrollbar */
+/* ===== TÉMÁK ===== */
+:root[data-theme="deep_ocean"] {
+  --bg:#041B2D; --panel:#062840; --card:#0A3554; --card2:#0D3F65; --card3:#104876;
+  --accent:#29B6F6; --a2:#FF7043; --a3:#FFD54F; --a4:#B39DDB; --a5:#80CBC4;
+  --border:#0D4070; --sel:#0A3060;
+}
+:root[data-theme="forest"] {
+  --bg:#0A1F0A; --panel:#112811; --card:#183018; --card2:#1E3A1E; --card3:#244424;
+  --accent:#69F0AE; --a2:#FFB300; --a3:#FFD54F; --a4:#CE93D8; --a5:#80DEEA;
+  --border:#1B4020; --sel:#0A2E0A;
+}
+:root[data-theme="sunset"] {
+  --bg:#1A0A00; --panel:#2A1200; --card:#3A1A00; --card2:#4A2200; --card3:#5A2A00;
+  --accent:#FF8C42; --a2:#FFD54F; --a3:#FF5252; --a4:#CE93D8; --a5:#FFCC02;
+  --border:#5A2800; --sel:#3A1500;
+}
+:root[data-theme="arctic"] {
+  --bg:#E8F4FD; --panel:#D0E8F8; --card:#F0F8FF; --card2:#E0F0FF; --card3:#D0E8F5;
+  --accent:#0277BD; --a2:#E64A19; --a3:#F57F17; --a4:#6A1B9A; --a5:#00838F;
+  --text:#0A2040; --muted:#4A6A8A; --border:#B0D0E8; --sel:#C0E0F8;
+}
+:root[data-theme="galaxy"] {
+  --bg:#0D0221; --panel:#160332; --card:#1E0843; --card2:#260D54; --card3:#2E1265;
+  --accent:#E040FB; --a2:#00E5FF; --a3:#FFD54F; --a4:#69F0AE; --a5:#FF80AB;
+  --border:#2A1060; --sel:#1A0840;
+}
+:root[data-theme="ember"] {
+  --bg:#1A0000; --panel:#2A0500; --card:#3A0800; --card2:#4A0C00; --card3:#5A1000;
+  --accent:#FF3D00; --a2:#FFD740; --a3:#FF6E40; --a4:#EA80FC; --a5:#FF9E80;
+  --border:#5A0A00; --sel:#3A0600;
+}
+
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: var(--card); }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+@keyframes fadeIn {
+  from { opacity:0; transform:translateY(8px); }
+  to { opacity:1; transform:translateY(0); }
+}
+
+
+.mt { margin-top: 14px; }
+.mb { margin-bottom: 14px; }
+.flex { display: flex; }
+.gap { gap: 10px; }
+.between { justify-content: space-between; align-items: center; }
+
+/* ===== DESKTOP RESPONSIVE ===== */
+@media (min-width: 900px) {
+  :root { --header-h: 57px; }
+  body { font-size: 15px; }
+
+  #header {
+    padding: 12px 28px;
+    grid-template-columns: auto 1fr auto;
+    gap: 20px;
+  }
+  .app-title { font-size: 1.25rem; }
+  .header-stats { gap: 10px; font-size: 0.85rem; justify-content: flex-start; }
+  .hstat { padding: 5px 12px; border-radius: 10px; }
+
+  #nav {
+    padding: 0 20px;
+    top: var(--header-h, 57px);
+  }
+  .nav-btn {
+    padding: 12px 20px;
+    font-size: 0.9rem;
+  }
+
+  #main { padding: 28px 32px; height: calc(100vh - 57px - 46px); }
+
+  .grid2 { grid-template-columns: 1fr 1fr; gap: 20px; }
+  .grid3 { grid-template-columns: 1fr 1fr 1fr; gap: 18px; }
+  .grid4 { grid-template-columns: repeat(4, 1fr); gap: 16px; }
+
+  .card { padding: 22px 26px; border-radius: 14px; }
+  .card2 { padding: 16px 18px; border-radius: 12px; }
+  .big-num { font-size: 2.2rem; }
+  h2 { font-size: 1.15rem; margin-bottom: 16px; }
+
+  /* Bevitel grid on desktop - 3 col */
+  #bev-kategoriak .grid2 { grid-template-columns: repeat(3, 1fr); }
+
+  /* Napló side-by-side */
+  #page-naplo .grid2 { grid-template-columns: 1fr 1.4fr; }
+
+  /* Bolt - 4 cols on large screens */
+  #bolt-temak { grid-template-columns: repeat(4, 1fr) !important; }
+}
+
+@media (min-width: 1200px) {
+  #main { padding: 32px 40px; max-width: 1400px; height: calc(100vh - 57px - 46px); }
+  #bolt-temak { grid-template-columns: repeat(5, 1fr) !important; }
+  #bev-kategoriak .grid2 { grid-template-columns: repeat(4, 1fr); }
+}
+
+/* Keep mobile grid overrides intact - already handled above in base CSS */
+@media (max-width: 899px) {
+  :root { --header-h: 53px; }
+}
+
+/* ── NÖVÉNY ANIMÁCIÓK ──────────────────────────────────────────────────── */
+@keyframes plantSway {
+  0%,100% { transform: rotate(-2deg) translateY(0); }
+  50%      { transform: rotate(2deg)  translateY(-3px); }
+}
+@keyframes plantDroop {
+  0%,100% { transform: rotate(-5deg) translateY(2px); }
+  50%      { transform: rotate(5deg)  translateY(6px); }
+}
+@keyframes plantWilt {
+  0%,100% { transform: rotate(-8deg) translateY(4px); }
+  50%      { transform: rotate(6deg)  translateY(10px); }
+}
+@keyframes leafFloat {
+  0%,100% { transform: translateY(0) rotate(0deg); opacity:1; }
+  50%      { transform: translateY(-8px) rotate(8deg); opacity:0.85; }
+}
+@keyframes sparkle {
+  0%,100% { opacity:0; transform:scale(0.5); }
+  50%      { opacity:1; transform:scale(1.2); }
+}
+@keyframes smokeRise {
+  0%   { transform:translateY(0) scale(1); opacity:0.6; }
+  100% { transform:translateY(-20px) scale(1.4); opacity:0; }
+}
+@keyframes rootPulse {
+  0%,100% { opacity:0.5; }
+  50%      { opacity:1; }
+}
+#plant-svg .sway   { animation: plantSway  3s ease-in-out infinite; transform-origin: 100px 200px; }
+#plant-svg .droop  { animation: plantDroop 4s ease-in-out infinite; transform-origin: 100px 200px; }
+#plant-svg .wilt   { animation: plantWilt  2.5s ease-in-out infinite; transform-origin: 100px 200px; }
+#plant-svg .leaf1  { animation: leafFloat  2.8s ease-in-out infinite; transform-origin: center; }
+#plant-svg .leaf2  { animation: leafFloat  3.2s 0.5s ease-in-out infinite; transform-origin: center; }
+#plant-svg .leaf3  { animation: leafFloat  2.5s 1s ease-in-out infinite; transform-origin: center; }
+#plant-svg .spark  { animation: sparkle    1.5s ease-in-out infinite; }
+#plant-svg .spark2 { animation: sparkle    1.5s 0.5s ease-in-out infinite; }
+#plant-svg .spark3 { animation: sparkle    1.5s 1s ease-in-out infinite; }
+#plant-svg .smoke  { animation: smokeRise  2s ease-out infinite; }
+#plant-svg .smoke2 { animation: smokeRise  2s 0.7s ease-out infinite; }
+#plant-svg .roots  { animation: rootPulse  3s ease-in-out infinite; }
+</style>
+</head>
+<body>
+
+<div id="header">
+  <div class="header-left">
+    <span class="app-title">🌍 CO₂ Mérő</span>
+    <span id="huser" class="muted"></span>
+  </div>
+  <div class="header-stats">
+    <span class="hstat" id="hstreak">🔥 0 nap</span>
+    <span class="hstat" id="hxp">⭐ 0 XP</span>
+    <span class="hstat" id="hcoins">🪙 0</span>
+    <span class="hstat" id="hrang">🌱 Kezdő</span>
+  </div>
+  <button class="logout-btn" onclick="window.location='/logout'">Kilépés</button>
+</div>
+
+<div id="nav">
+  <button class="nav-btn" data-page="dashboard">📊 Irányítópult</button>
+  <button class="nav-btn" data-page="bevitel">✏️ Bevitel</button>
+  <button class="nav-btn" data-page="kuldetesek">🎯 Küldetések</button>
+  <button class="nav-btn" data-page="szokasok">🔄 Szokások</button>
+  <button class="nav-btn" data-page="statisztika">📈 Statisztika</button>
+  <button class="nav-btn" data-page="hoterkep">🗓️ Hőtérkép</button>
+  <button class="nav-btn" data-page="elojelzes">🔮 Előrejelzés</button>
+  <button class="nav-btn" data-page="kalkulator">🧮 Kalkulátor</button>
+  <button class="nav-btn" data-page="naplo">📔 Napló</button>
+  <button class="nav-btn" data-page="bolt">🛒 Bolt</button>
+  <a href="/ranglista" class="nav-btn" style="text-decoration:none;display:block">🏆 Ranglista</a>
+  <button class="nav-btn" data-page="heti">📋 Heti Riport</button>
+  <button class="nav-btn" data-page="tippek">🤖 AI Tippek</button>
+  <button class="nav-btn" data-page="kihivas">⚔️ Kihívás</button>
+  <button class="nav-btn" data-page="cimke">🏷️ CO₂ Cimke</button>
+  <button class="nav-btn" data-page="beallitas">⚙️ Beállítások</button>
+</div>
+
+<div id="main">
+
+<!-- DASHBOARD -->
+<div class="page" id="page-dashboard">
+  <div class="grid2 mb">
+    <div class="card" style="border-color:var(--accent)">
+      <div class="label">Mai CO₂ kibocsátás</div>
+      <div class="big-num" id="d-today-sum">–</div>
+      <div class="muted">kg CO₂</div>
+      <div class="progress-bar mt" style="margin-top:10px">
+        <div class="progress-fill" id="d-goal-bar" style="background:var(--ok);width:0%"></div>
+      </div>
+      <div class="muted" id="d-goal-txt" style="margin-top:4px;font-size:0.78rem"></div>
+    </div>
+    <div class="card">
+      <div class="label">Rang & XP</div>
+      <div id="d-rang" style="font-size:1.1rem;font-weight:bold;margin-bottom:6px"></div>
+      <div class="progress-bar">
+        <div class="progress-fill" id="d-xp-bar" style="background:var(--accent);width:0%"></div>
+      </div>
+      <div class="muted" id="d-xp-txt" style="margin-top:4px;font-size:0.78rem"></div>
+    </div>
+  </div>
+
+  <div class="grid4 mb">
+    <div class="card2" style="text-align:center">
+      <div style="font-size:1.6rem">🔥</div>
+      <div class="big-num" id="d-streak" style="font-size:1.4rem">0</div>
+      <div class="label">nap streak</div>
+    </div>
+    <div class="card2" style="text-align:center">
+      <div style="font-size:1.6rem">⭐</div>
+      <div class="big-num" id="d-xp2" style="font-size:1.4rem">0</div>
+      <div class="label">XP összesen</div>
+    </div>
+    <div class="card2" style="text-align:center">
+      <div style="font-size:1.6rem">🪙</div>
+      <div class="big-num" id="d-coins" style="font-size:1.4rem">0</div>
+      <div class="label">érmék</div>
+    </div>
+    <div class="card2" style="text-align:center">
+      <div style="font-size:1.6rem">🎯</div>
+      <div class="big-num" id="d-goal" style="font-size:1.4rem">–</div>
+      <div class="label">kg napi cél</div>
+    </div>
+  </div>
+
+  <!-- NÖVÉNY WIDGET -->
+  <div class="card mb" id="plant-card" style="text-align:center;position:relative;overflow:hidden">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+      <h2 style="margin:0" id="plant-title">🌱 A te növényed</h2>
+      <span id="plant-mood-badge" style="font-size:0.8rem;padding:3px 10px;border-radius:20px;background:var(--card2)"></span>
+    </div>
+    <div id="plant-message" class="muted" style="font-size:0.88rem;margin-bottom:12px;min-height:1.4em"></div>
+    <div style="display:flex;justify-content:center;align-items:flex-end;gap:0">
+      <svg id="plant-svg" viewBox="0 0 200 220" xmlns="http://www.w3.org/2000/svg" style="width:160px;height:176px;filter:drop-shadow(0 4px 18px #00E5C333)">
+        <!-- dinamikusan töltjük JS-ből -->
+      </svg>
+    </div>
+    <div id="plant-xp-hint" style="font-size:0.78rem;color:var(--muted);margin-top:6px"></div>
+  </div>
+
+  <div class="card mb">
+    <h2>Utolsó 30 nap</h2>
+    <canvas id="chart-30nap" height="90"></canvas>
+  </div>
+
+  <div class="card mb">
+    <h2>Mai kategóriák</h2>
+    <div id="d-katok"></div>
+  </div>
+
+  <div class="card">
+    <h2>💡 Tipp</h2>
+    <div id="d-tipp" class="muted"></div>
+  </div>
+</div>
+
+<!-- BEVITEL -->
+<div class="page" id="page-bevitel">
+  <div class="card">
+    <div class="flex between mb">
+      <h2>✏️ Napi bevitel</h2>
+      <div class="form-group" style="margin:0">
+        <input type="date" id="bev-datum" style="width:auto">
+      </div>
+    </div>
+    <div id="bev-kategoriak"></div>
+    <div style="margin-top:18px;display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+      <button class="btn" onclick="bevitelMent()">💾 Mentés</button>
+      <span id="bev-osszeg" style="font-size:1.1rem;color:var(--accent)"></span>
+    </div>
+  </div>
+</div>
+
+<!-- KÜLDETÉSEK -->
+<div class="page" id="page-kuldetesek">
+  <div class="card">
+    <h2>🎯 Mai küldetések</h2>
+    <div id="kul-list"></div>
+  </div>
+</div>
+
+<!-- SZOKÁSOK -->
+<div class="page" id="page-szokasok">
+  <div class="card">
+    <h2>🔄 Szokáskövetés</h2>
+    <div id="sz-list"></div>
+  </div>
+</div>
+
+<!-- STATISZTIKA -->
+<div class="page" id="page-statisztika">
+  <div class="grid2 mb">
+    <div class="card">
+      <h2>📊 Összesített adatok</h2>
+      <div id="stat-table"></div>
+    </div>
+    <div class="card">
+      <h2>🌍 Összehasonlítás</h2>
+      <canvas id="chart-compare" height="160"></canvas>
+    </div>
+  </div>
+  <div class="card mb">
+    <h2>Kategóriánkénti átlag</h2>
+    <canvas id="chart-kat" height="100"></canvas>
+  </div>
+  <div style="text-align:right">
+    <a href="/api/export_csv" class="btn btn-sm">⬇️ CSV letöltés</a>
+  </div>
+</div>
+
+<!-- HŐTÉRKÉP -->
+<div class="page" id="page-hoterkep">
+  <div class="card">
+    <h2>🗓️ Éves hőtérkép</h2>
+    <div style="overflow-x:auto">
+      <div id="hoterkep-container"></div>
+    </div>
+    <div style="margin-top:12px;display:flex;gap:6px;align-items:center;font-size:0.78rem;color:var(--muted)">
+      <span>Alacsony</span>
+      <div style="width:14px;height:14px;background:#1a3358;border-radius:2px"></div>
+      <div style="width:14px;height:14px;background:#00E676;border-radius:2px"></div>
+      <div style="width:14px;height:14px;background:#FFD54F;border-radius:2px"></div>
+      <div style="width:14px;height:14px;background:#FF7043;border-radius:2px"></div>
+      <div style="width:14px;height:14px;background:#FF5252;border-radius:2px"></div>
+      <span>Magas</span>
+    </div>
+  </div>
+</div>
+
+<!-- ELŐREJELZÉS -->
+<div class="page" id="page-elojelzes">
+  <div class="card">
+    <h2>🔮 30 napos előrejelzés</h2>
+    <div id="eloj-info" class="muted mb"></div>
+    <canvas id="chart-eloj" height="100"></canvas>
+  </div>
+</div>
+
+<!-- KALKULÁTOR -->
+<div class="page" id="page-kalkulator">
+  <div class="card">
+    <h2>🧮 Gyors kalkulátor</h2>
+    <p class="muted mb">Számítsd ki egy tevékenység CO₂ kibocsátását az emissziós faktorok alapján.</p>
+    <div id="kalk-kategoriak"></div>
+    <div class="card2 mt" style="margin-top:16px">
+      <div class="label">Becsült CO₂ kibocsátás</div>
+      <div class="big-num" id="kalk-osszeg">0.000</div>
+      <div class="muted">kg CO₂</div>
+    </div>
+  </div>
+</div>
+
+<!-- NAPLÓ -->
+<div class="page" id="page-naplo">
+  <div class="grid2">
+    <div class="card">
+      <h2>📔 Napló bejegyzések</h2>
+      <div id="naplo-lista"></div>
+    </div>
+    <div class="card">
+      <h3 id="naplo-selected-date">Válassz egy napot</h3>
+      <div class="form-group mt">
+        <textarea id="naplo-szoveg" placeholder="Írd ide a mai gondolataid..."></textarea>
+      </div>
+      <button class="btn" onclick="naploMent()">💾 Mentés</button>
+    </div>
+  </div>
+</div>
+
+<!-- BOLT -->
+<div class="page" id="page-bolt">
+  <div class="card">
+    <h2>🛒 Témabolt</h2>
+    <p class="muted mb">Vásárolj témákat érmékkel!</p>
+    <div class="grid3" id="bolt-temak"></div>
+  </div>
+</div>
+
+<!-- BEÁLLÍTÁSOK -->
+<div class="page" id="page-beallitas">
+  <div class="card" style="max-width:500px">
+    <h2>⚙️ Beállítások</h2>
+    <div class="form-group">
+      <label>Napi CO₂ cél (kg)</label>
+      <input type="number" id="set-napi-cel" min="1" max="100" step="0.5">
+    </div>
+    <button class="btn" onclick="beallitasMent()">💾 Mentés</button>
+  </div>
+</div>
+
+
+<!-- HETI RIPORT -->
+<div class="page" id="page-heti">
+  <div class="card mb">
+    <h2>📋 Heti összefoglaló</h2>
+    <div id="heti-loading" class="loading">Betöltés...</div>
+    <div id="heti-content" style="display:none">
+      <div class="grid3 mb" id="heti-stats"></div>
+      <div class="grid2 mb">
+        <div class="card2">
+          <h3>📅 Napi bontás</h3>
+          <canvas id="chart-heti" height="160"></canvas>
+        </div>
+        <div class="card2">
+          <h3>🗂️ Kategóriák a héten</h3>
+          <div id="heti-katok"></div>
+        </div>
+      </div>
+      <div class="grid2">
+        <div class="card2" id="heti-legjobb"></div>
+        <div class="card2" id="heti-legrosszabb"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- AI TIPPEK -->
+<div class="page" id="page-tippek">
+  <div class="card mb">
+    <h2>🤖 Személyre szabott tippek</h2>
+    <p class="muted mb">Az elmúlt 7 nap adatai alapján generált javaslatok.</p>
+    <button class="btn mb" onclick="loadTippek()">🔄 Frissítés</button>
+    <div id="tippek-loading" class="loading" style="display:none">Elemzés...</div>
+    <div id="tippek-content"></div>
+    <div id="tippek-katstat" class="mt"></div>
+  </div>
+  <div class="card">
+    <h2>📊 Heti kategória-elemzés</h2>
+    <canvas id="chart-tippek-kat" height="120"></canvas>
+  </div>
+</div>
+
+<!-- KIHÍVÁS -->
+<div class="page" id="page-kihivas">
+  <div class="card mb" id="kihivas-bejovo-card" style="display:none">
+    <h2>📨 Bejövő kihívások</h2>
+    <div id="kihivas-bejovo"></div>
+  </div>
+  <div class="grid2">
+    <div class="card">
+      <h2>⚔️ Kihívj egy barátot!</h2>
+      <p class="muted mb">Mérd össze magad más felhasználókkal!</p>
+      <div class="form-group">
+        <label>Felhasználónév</label>
+        <input type="text" id="kihivas-cel" placeholder="pl. zoldpeter">
+      </div>
+      <div class="form-group">
+        <label>Időtartam (nap)</label>
+        <select id="kihivas-napok">
+          <option value="3">3 nap</option>
+          <option value="7" selected>1 hét</option>
+          <option value="14">2 hét</option>
+          <option value="30">1 hónap</option>
+        </select>
+      </div>
+      <button class="btn" onclick="kihivasKuldes()">⚔️ Kihívás küldése</button>
+      <div id="kihivas-eredmeny" class="mt muted"></div>
+    </div>
+    <div class="card">
+      <h2>🏆 Közösségi összehasonlítás</h2>
+      <div id="osszehasonlitas-loading" class="loading">Betöltés...</div>
+      <div id="osszehasonlitas-content" style="display:none">
+        <div id="osszehasonlitas-stats"></div>
+        <div class="mt">
+          <canvas id="chart-osszehasonlitas" height="140"></canvas>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="card mt">
+    <h2>🏅 Élő ranglista (Top 10)</h2>
+    <div id="kihivas-ranglista"></div>
+  </div>
+</div>
+
+<!-- CO2 CIMKE -->
+<div class="page" id="page-cimke">
+  <div class="grid2">
+    <div class="card">
+      <h2>🏷️ CO₂ Tápanyagjelölés</h2>
+      <p class="muted mb">Add meg az aktivitásokat és látd az összesített CO₂ "tápanyag-jelölést"!</p>
+      <div id="cimke-kategoriak"></div>
+      <button class="btn mt" onclick="cimkeGeneral()">🔍 Számítás</button>
+    </div>
+    <div class="card">
+      <h2>📊 CO₂ Jelölés</h2>
+      <div id="cimke-eredmeny">
+        <div class="muted" style="text-align:center;padding:40px">Add meg az aktivitásokat a bal oldalon!</div>
+      </div>
+    </div>
+  </div>
+</div>
+</div><!-- #main -->
+
+<div id="toast"></div>
+
+<script>
+// ── State ──────────────────────────────────────────────────────────────────
+let D = {};
+let KATS = {};
+let chart30 = null, chartCompare = null, chartKat = null, chartEloj = null;
+let currentPage = '{{ page }}';
+let naploSelectedDate = new Date().toISOString().split('T')[0];
+
+// ── Init ───────────────────────────────────────────────────────────────────
+async function init() {
+  await Promise.all([loadData(), loadKategoriak()]);
+  buildFaktorok();  // Fix: build before setPage so stat/heatmap have _FAKTOROK
+  renderHeader();
+  setupNav();
+  setupBevitelForm();
+  setupKalkulator();
+  setPage(currentPage);
+}
+
+async function loadData() {
+  const r = await fetch('/api/data');
+  D = await r.json();
+  applyTheme(D.aktiv_tema);
+}
+
+function applyTheme(temaId) {
+  const root = document.documentElement;
+  if (!temaId) {
+    root.removeAttribute('data-theme');
+  } else {
+    root.setAttribute('data-theme', temaId);
+  }
+  const metaTheme = document.querySelector('meta[name="theme-color"]');
+  if (metaTheme) {
+    const bg = getComputedStyle(root).getPropertyValue('--bg').trim();
+    if (bg) metaTheme.setAttribute('content', bg);
+  }
+}
+
+async function loadKategoriak() {
+  const r = await fetch('/api/kategoriak');
+  KATS = await r.json();
+}
+
+// ── Navigation ─────────────────────────────────────────────────────────────
+function setupNav() {
+  document.querySelectorAll('.nav-btn').forEach(btn => {
+    if (btn.dataset.page) {
+      btn.addEventListener('click', () => setPage(btn.dataset.page));
+    }
+  });
+}
+
+function setPage(id) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+  const pg = document.getElementById('page-' + id);
+  if (pg) pg.classList.add('active');
+  const btn = document.querySelector(`.nav-btn[data-page="${id}"]`);
+  if (btn) btn.classList.add('active');
+  currentPage = id;
+  renderPage(id);
+}
+
+function renderPage(id) {
+  switch(id) {
+    case 'dashboard':   renderDashboard(); break;
+    case 'bevitel':     renderBevitel(); break;
+    case 'kuldetesek':  renderKuldetesek(); break;
+    case 'szokasok':    renderSzokasok(); break;
+    case 'statisztika': renderStatisztika(); break;
+    case 'hoterkep':    renderHoterkep(); break;
+    case 'elojelzes':   renderElojelzes(); break;
+    case 'kalkulator':  renderKalkulator(); break;
+    case 'naplo':       renderNaplo(); break;
+    case 'bolt':        renderBolt(); break;
+    case 'beallitas':   renderBeallitas(); break;
+    case 'heti':        renderHetiRiport(); break;
+    case 'tippek':      renderTippekPage(); break;
+    case 'kihivas':     renderKihivasPage(); break;
+    case 'cimke':       renderCimkePage(); break;
+  }
+}
+
+// ── Header ─────────────────────────────────────────────────────────────────
+function renderHeader() {
+  document.getElementById('huser').textContent = '👤 ' + (D.felhasznalo || '');
+  document.getElementById('hstreak').textContent = '🔥 ' + D.streak + ' nap';
+  document.getElementById('hxp').textContent = '⭐ ' + D.xp + ' XP';
+  document.getElementById('hcoins').textContent = '🪙 ' + D.coins;
+  document.getElementById('hrang').textContent = D.rang_nev || '';
+}
+
+// ── Dashboard ──────────────────────────────────────────────────────────────
+function renderDashboard() {
+  const s = D.today_sum || 0;
+  const cel = D.napi_cel || 10;
+  document.getElementById('d-today-sum').textContent = s.toFixed(3);
+  document.getElementById('d-streak').textContent = D.streak;
+  document.getElementById('d-xp2').textContent = D.xp;
+  document.getElementById('d-coins').textContent = D.coins;
+  document.getElementById('d-goal').textContent = cel.toFixed(1);
+  document.getElementById('d-rang').textContent = D.rang_nev || '';
+  document.getElementById('d-tipp').textContent = D.tipp || '';
+
+  const pct = Math.min(100, (s / cel) * 100);
+  const bar = document.getElementById('d-goal-bar');
+  bar.style.width = pct + '%';
+  bar.style.background = s <= cel ? 'var(--ok)' : 'var(--danger)';
+  document.getElementById('d-goal-txt').textContent =
+    `${s.toFixed(2)} / ${cel.toFixed(1)} kg  (${pct.toFixed(0)}%)`;
+
+  const xpBar = document.getElementById('d-xp-bar');
+  xpBar.style.width = (D.rang_prog * 100) + '%';
+  document.getElementById('d-xp-txt').textContent =
+    `${D.xp} XP – következő: ${D.rang_kov} XP`;
+
+  // 30 napos chart
+  const labels = D.utolso30.map(x => x.datum.slice(5));
+  const values = D.utolso30.map(x => x.ertek);
+  if (chart30) chart30.destroy();
+  const ctx = document.getElementById('chart-30nap').getContext('2d');
+  chart30 = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [{
+        label: 'kg CO₂',
+        data: values,
+        backgroundColor: values.map(v => v <= cel ? '#00E67644' : '#FF525244'),
+        borderColor: values.map(v => v <= cel ? '#00E676' : '#FF5252'),
+        borderWidth: 1,
+      }]
+    },
+    options: {
+      responsive: true,
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { ticks: { color: '#5C7A99', font: { size: 10 } }, grid: { color: '#1E3A5F' } },
+        y: { ticks: { color: '#5C7A99' }, grid: { color: '#1E3A5F' } }
+      },
+      annotation: {}
+    }
+  });
+
+  // Kategóriák
+  const katDiv = document.getElementById('d-katok');
+  katDiv.innerHTML = '';
+  const katData = D.kategoriak_ma || {};
+  const maxKat = Math.max(...Object.values(katData), 0.1);
+  for (const [knev, kinfo] of Object.entries(KATS)) {
+    const val = katData[knev] || 0;
+    if (val === 0) continue;
+    const pct = (Math.abs(val) / maxKat * 100).toFixed(1);
+    katDiv.innerHTML += `
+      <div class="kat-bar">
+        <div class="kat-bar-label">${kinfo.ikon} ${knev.replace(/^.*? /, '')}</div>
+        <div style="flex:1;background:var(--border);border-radius:5px;height:10px;overflow:hidden">
+          <div class="kat-bar-fill" style="width:${pct}%;background:${kinfo.szin}"></div>
+        </div>
+        <div class="kat-bar-val">${val.toFixed(2)} kg</div>
+      </div>`;
+  }
+  if (!katDiv.innerHTML) katDiv.innerHTML = '<span class="muted">Ma még nincs adat bevive.</span>';
+
+  // Növény widget
+  renderPlant();
+}
+
+// ── NÖVÉNY WIDGET ──────────────────────────────────────────────────────────
+function renderPlant() {
+  const s   = D.today_sum || 0;
+  const cel = D.napi_cel  || 10;
+  const PAR  = D.PAR_NAP  || 4.1;   // Párizsi cél
+  const FENN = D.FENN_NAP || 2.1;   // Fenntartható
+
+  // Szint meghatározása (0 = legjobb, 5 = legrosszabb)
+  let level;
+  if (s === 0)          level = 0;   // nincs adat – mag
+  else if (s <= FENN)   level = 1;   // virágzó
+  else if (s <= PAR)    level = 2;   // boldog
+  else if (s <= cel)    level = 3;   // elfogadható
+  else if (s <= cel*2)  level = 4;   // szomorkás
+  else                  level = 5;   // haldokló
+
+  const svg = document.getElementById('plant-svg');
+  const title = document.getElementById('plant-title');
+  const badge = document.getElementById('plant-mood-badge');
+  const msg   = document.getElementById('plant-message');
+  const hint  = document.getElementById('plant-xp-hint');
+
+  const configs = [
+    // 0 – mag (nincs adat)
+    {
+      label:'🌰 Mag', badgeColor:'#5C7A99', badgeBg:'#1A3358',
+      msg: 'Még nincs mai adat – beviteled után kicsírázom!',
+      hint: '✏️ Töltsd ki a napi bevitelt és növekszem!',
+      svg: `
+        <ellipse cx="100" cy="190" rx="35" ry="8" fill="#1A3358" class="roots"/>
+        <ellipse cx="100" cy="175" rx="18" ry="20" fill="#8B6914"/>
+        <ellipse cx="100" cy="165" rx="14" ry="16" fill="#A0791A"/>
+        <ellipse cx="95"  cy="162" rx="5"  ry="7"  fill="#C49A22" opacity=".6"/>
+        <line x1="100" y1="155" x2="100" y2="145" stroke="#8B6914" stroke-width="2"/>
+        <ellipse cx="100" cy="140" rx="6" ry="5" fill="#66BB6A" opacity=".7"/>
+      `
+    },
+    // 1 – virágzó 🌸
+    {
+      label:'🌸 Virágzó', badgeColor:'#00E5C3', badgeBg:'#00E5C322',
+      msg: `Fantasztikus! ${s.toFixed(2)} kg – fenntartható szint alatt! 🎉`,
+      hint: '🌟 +10 bónusz XP minden ilyen napért!',
+      svg: `
+        <ellipse cx="100" cy="195" rx="40" ry="10" fill="#0D2A1A" class="roots"/>
+        <!-- szár -->
+        <path d="M100 190 Q97 160 100 130 Q103 100 100 70" stroke="#4CAF50" stroke-width="4" fill="none" class="sway"/>
+        <!-- levelek -->
+        <g class="leaf1"><ellipse cx="78" cy="155" rx="20" ry="10" fill="#66BB6A" transform="rotate(-35 78 155)"/></g>
+        <g class="leaf2"><ellipse cx="122" cy="140" rx="22" ry="11" fill="#81C784" transform="rotate(30 122 140)"/></g>
+        <g class="leaf3"><ellipse cx="80"  cy="115" rx="18" ry="9"  fill="#A5D6A7" transform="rotate(-25 80 115)"/></g>
+        <!-- virágok -->
+        <g class="sway">
+          <circle cx="100" cy="65" r="12" fill="#FF80AB"/>
+          <circle cx="100" cy="65" r="6"  fill="#FFD54F"/>
+          <circle cx="88"  cy="58" r="8"  fill="#F48FB1"/>
+          <circle cx="112" cy="58" r="8"  fill="#F48FB1"/>
+          <circle cx="88"  cy="72" r="8"  fill="#F48FB1"/>
+          <circle cx="112" cy="72" r="8"  fill="#F48FB1"/>
+        </g>
+        <!-- sparkle-k -->
+        <g class="spark" ><text x="128" y="52" font-size="14">✨</text></g>
+        <g class="spark2"><text x="60"  y="70" font-size="12">⭐</text></g>
+        <g class="spark3"><text x="118" y="80" font-size="10">✨</text></g>
+      `
+    },
+    // 2 – boldog 😊
+    {
+      label:'😊 Boldog', badgeColor:'#00E676', badgeBg:'#00E67622',
+      msg: `Szép munka! ${s.toFixed(2)} kg – Párizsi cél alatt! 🌍`,
+      hint: '💪 Csak egy kicsivel kevesebb és virágozni fogsz!',
+      svg: `
+        <ellipse cx="100" cy="195" rx="38" ry="9" fill="#0D2A1A" class="roots"/>
+        <path d="M100 190 Q96 158 100 125 Q104 95 100 68" stroke="#388E3C" stroke-width="4" fill="none" class="sway"/>
+        <g class="leaf1"><ellipse cx="76"  cy="160" rx="22" ry="11" fill="#4CAF50" transform="rotate(-40 76 160)"/></g>
+        <g class="leaf2"><ellipse cx="124" cy="142" rx="24" ry="12" fill="#66BB6A" transform="rotate(35 124 142)"/></g>
+        <g class="leaf3"><ellipse cx="78"  cy="112" rx="20" ry="10" fill="#81C784" transform="rotate(-28 78 112)"/></g>
+        <g class="sway">
+          <ellipse cx="100" cy="60" rx="22" ry="18" fill="#FFEB3B"/>
+          <ellipse cx="100" cy="60" rx="12" ry="10" fill="#FF8F00"/>
+          <g class="spark" ><text x="120" y="48" font-size="12">✨</text></g>
+          <g class="spark2"><text x="64"  y="55" font-size="10">🌟</text></g>
+        </g>
+      `
+    },
+    // 3 – elfogadható 🙂
+    {
+      label:'🙂 Jól van', badgeColor:'#FFD54F', badgeBg:'#FFD54F22',
+      msg: `${s.toFixed(2)} kg – célod alatt, de van hova fejlődni.`,
+      hint: '🎯 Próbálj meg 1-2 kategóriában csökkenteni!',
+      svg: `
+        <ellipse cx="100" cy="195" rx="35" ry="8" fill="#0D2A1A" class="roots"/>
+        <path d="M100 190 Q98 160 101 128 Q104 100 100 72" stroke="#558B2F" stroke-width="4" fill="none" class="sway"/>
+        <g class="leaf1"><ellipse cx="80"  cy="162" rx="20" ry="10" fill="#689F38" transform="rotate(-38 80 162)"/></g>
+        <g class="leaf2"><ellipse cx="120" cy="145" rx="20" ry="10" fill="#7CB342" transform="rotate(32 120 145)"/></g>
+        <g class="leaf3"><ellipse cx="82"  cy="115" rx="16" ry="8"  fill="#8BC34A" transform="rotate(-22 82 115)"/></g>
+        <g class="sway">
+          <ellipse cx="100" cy="65" rx="18" ry="15" fill="#9CCC65"/>
+          <ellipse cx="100" cy="65" rx="9"  ry="8"  fill="#558B2F"/>
+        </g>
+      `
+    },
+    // 4 – szomorkás 😕
+    {
+      label:'😕 Szomorkás', badgeColor:'#FF9800', badgeBg:'#FF980022',
+      msg: `${s.toFixed(2)} kg – célod felett! A növény megérzi… 🍂`,
+      hint: '🍂 Holnap próbálj meg legalább 1 kategóriában kevesebbet!',
+      svg: `
+        <ellipse cx="100" cy="195" rx="32" ry="7" fill="#1A1A0A" class="roots"/>
+        <path d="M100 190 Q102 162 99 135 Q96 108 100 80" stroke="#795548" stroke-width="3.5" fill="none" class="droop"/>
+        <g class="droop">
+          <g class="leaf1"><ellipse cx="82"  cy="165" rx="18" ry="8" fill="#A5884A" transform="rotate(-50 82 165)" opacity=".85"/></g>
+          <g class="leaf2"><ellipse cx="118" cy="148" rx="18" ry="8" fill="#8D6E63" transform="rotate(45 118 148)" opacity=".8"/></g>
+          <g class="leaf3"><ellipse cx="85"  cy="118" rx="14" ry="7" fill="#BCAAA4" transform="rotate(-30 85 118)" opacity=".7"/></g>
+          <ellipse cx="100" cy="74" rx="14" ry="12" fill="#A1887F"/>
+          <!-- lehulló levelek -->
+          <text x="62" y="100" font-size="14" opacity=".5" transform="rotate(20 62 100)">🍂</text>
+          <text x="130" y="120" font-size="12" opacity=".4" transform="rotate(-15 130 120)">🍁</text>
+        </g>
+      `
+    },
+    // 5 – haldokló ☠️
+    {
+      label:'😢 Szegény', badgeColor:'#FF5252', badgeBg:'#FF525222',
+      msg: `${s.toFixed(2)} kg – kétszeres cél felett! Segíts rajta! 🆘`,
+      hint: '🚨 A növényed nagyon szenved – holnap csökkents!',
+      svg: `
+        <ellipse cx="100" cy="195" rx="28" ry="6" fill="#1A0A0A" class="roots"/>
+        <path d="M100 190 Q105 165 98 140 Q92 115 100 90" stroke="#4E342E" stroke-width="3" fill="none" class="wilt"/>
+        <g class="wilt">
+          <g class="leaf1"><ellipse cx="84"  cy="168" rx="14" ry="6" fill="#6D4C41" transform="rotate(-55 84 168)" opacity=".6"/></g>
+          <g class="leaf2"><ellipse cx="115" cy="150" rx="14" ry="6" fill="#5D4037" transform="rotate(50 115 150)" opacity=".55"/></g>
+          <g class="leaf3"><ellipse cx="88"  cy="122" rx="10" ry="5" fill="#795548" transform="rotate(-35 88 122)" opacity=".5"/></g>
+          <ellipse cx="100" cy="85" rx="10" ry="9" fill="#6D4C41" opacity=".8"/>
+          <!-- füst / gőz -->
+          <ellipse cx="90"  cy="60" rx="7" ry="5" fill="#888" class="smoke"  opacity=".5"/>
+          <ellipse cx="110" cy="55" rx="6" ry="4" fill="#aaa" class="smoke2" opacity=".4"/>
+          <!-- haldokló levelek -->
+          <text x="58"  y="95"  font-size="14" opacity=".4" transform="rotate(30 58 95)">🍂</text>
+          <text x="128" y="112" font-size="12" opacity=".35" transform="rotate(-20 128 112)">🍁</text>
+          <text x="72"  y="128" font-size="10" opacity=".3" transform="rotate(10 72 128)">🍂</text>
+        </g>
+      `
+    },
+  ];
+
+  const c = configs[level];
+  title.textContent = `${c.label} növényed`;
+  badge.textContent = c.label.split(' ').slice(1).join(' ');
+  badge.style.color = c.badgeColor;
+  badge.style.background = c.badgeBg;
+  badge.style.border = `1px solid ${c.badgeColor}44`;
+  msg.textContent = c.msg;
+  hint.textContent = c.hint;
+  svg.innerHTML = c.svg;
+}
+
+// ── Bevitel ────────────────────────────────────────────────────────────────
+function setupBevitelForm() {
+  const today = new Date().toISOString().split('T')[0];
+  document.getElementById('bev-datum').value = today;
+  document.getElementById('bev-datum').addEventListener('change', renderBevitelInputs);
+}
+
+function renderBevitel() {
+  renderBevitelInputs();
+}
+
+function renderBevitelInputs() {
+  const nap = document.getElementById('bev-datum').value;
+  const existing = (D.bejegyzesek || {})[nap] || {};
+  const container = document.getElementById('bev-kategoriak');
+  container.innerHTML = '';
+  for (const [kNev, kInfo] of Object.entries(KATS)) {
+    let html = `<div class="card2 mb" style="border-left:3px solid ${kInfo.szin}">
+      <h3>${kInfo.ikon} ${kNev}</h3>
+      <div class="grid2">`;
+    for (const [eNev, [kulcs, faktor]] of Object.entries(kInfo.elemek)) {
+      const val = existing[kulcs] || 0;
+      html += `
+        <div class="form-group" style="margin-bottom:8px">
+          <label title="${faktor > 0 ? '+' : ''}${faktor} kg CO₂/egység">${eNev}</label>
+          <input type="number" class="num-input bev-input" data-kulcs="${kulcs}" data-faktor="${faktor}"
+            min="0" step="0.1" value="${val || ''}" placeholder="0"
+            oninput="updateBevitelOsszeg()">
+        </div>`;
+    }
+    html += '</div></div>';
+    container.innerHTML += html;
+  }
+  updateBevitelOsszeg();
+}
+
+function updateBevitelOsszeg() {
+  let total = 0;
+  document.querySelectorAll('.bev-input').forEach(inp => {
+    const v = parseFloat(inp.value) || 0;
+    const f = parseFloat(inp.dataset.faktor) || 0;
+    total += v * f;
+  });
+  document.getElementById('bev-osszeg').textContent = `Összeg: ${total.toFixed(3)} kg CO₂`;
+}
+
+async function bevitelMent() {
+  const nap = document.getElementById('bev-datum').value;
+  const bej = {};
+  document.querySelectorAll('.bev-input').forEach(inp => {
+    const v = parseFloat(inp.value) || 0;
+    if (v) bej[inp.dataset.kulcs] = v;
+  });
+  const r = await fetch('/api/bevitel', {
+    method: 'POST',
+    headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({ datum: nap, bejegyzesek: bej })
+  });
+  const res = await r.json();
+  if (res.ok) {
+    await loadData();
+    renderHeader();
+    toast(`✅ Mentve! ${res.osszeg.toFixed(3)} kg CO₂${res.xp_earn ? ' +'+res.xp_earn+' XP' : ''}`);
+  }
+}
+
+// ── Küldetések ─────────────────────────────────────────────────────────────
+function renderKuldetesek() {
+  const k = D.kuldetesek_ma || {};
+  const lista = D.kuldetesek_lista || [];
+  const container = document.getElementById('kul-list');
+  container.innerHTML = '';
+
+  // Főküldetés
+  const fo = lista[k.fo];
+  if (fo) {
+    container.innerHTML += `
+      <div class="quest-card mb ${k.fo_kesz ? 'quest-done' : ''}" style="border-left:3px solid var(--accent)">
+        <div class="quest-icon">${fo.i}</div>
+        <div class="quest-info">
+          <div class="quest-title"><b>Főküldetés:</b> ${fo.s}</div>
+          <div class="quest-meta">+${fo.xp} XP &nbsp; 🌿 -${fo.sv} kg CO₂</div>
+        </div>
+        ${!k.fo_kesz
+          ? `<button class="btn btn-sm" onclick="kuldestesTeljesit('fo', null)">✓ Kész</button>`
+          : '<span style="color:var(--ok)">✅</span>'}
+      </div>`;
+  }
+
+  // Bónuszküldetések
+  (k.bonuszok || []).forEach((bi, idx) => {
+    const q = lista[bi];
+    if (!q) return;
+    const kesz = (k.bonusz_kesz || []).includes(bi);
+    container.innerHTML += `
+      <div class="quest-card mb ${kesz ? 'quest-done' : ''}">
+        <div class="quest-icon">${q.i}</div>
+        <div class="quest-info">
+          <div class="quest-title">${q.s}</div>
+          <div class="quest-meta">+${q.xp} XP &nbsp; 🌿 -${q.sv} kg CO₂</div>
+        </div>
+        ${!kesz
+          ? `<button class="btn btn-sm btn-ghost" onclick="kuldestesTeljesit('bonusz', ${idx})">✓ Kész</button>`
+          : '<span style="color:var(--ok)">✅</span>'}
+      </div>`;
+  });
+}
+
+async function kuldestesTeljesit(tipusa, bonusz_idx) {
+  const r = await fetch('/api/kuldetes_kesz', {
+    method: 'POST',
+    headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({ tipusa, bonusz_idx })
+  });
+  const res = await r.json();
+  if (res.ok) {
+    await loadData();
+    renderHeader();
+    renderKuldetesek();
+    if (res.xp_earn) toast(`🎉 +${res.xp_earn} XP szerzve!`);
+  }
+}
+
+// ── Szokások ───────────────────────────────────────────────────────────────
+function renderSzokasok() {
+  const container = document.getElementById('sz-list');
+  container.innerHTML = '';
+  const szData = D.szokasok || {};
+  const szLista = D.szokasok_lista || [];
+  const today = new Date().toISOString().split('T')[0];
+
+  szLista.forEach(sz => {
+    const sd = szData[sz.nev] || { aktiv: false, napok: [] };
+    const streak = calcStreak(sd.napok);
+    const todayDone = sd.napok.includes(today);
+    const pct = Math.min(100, (streak / sz.cel_nap) * 100);
+    container.innerHTML += `
+      <div class="card2 mb">
+        <div class="flex between">
+          <div style="display:flex;align-items:center;gap:10px">
+            <span style="font-size:1.5rem">${sz.ikon}</span>
+            <div>
+              <div style="font-weight:bold">${sz.nev}</div>
+              <div class="muted" style="font-size:0.78rem">${streak} / ${sz.cel_nap} nap &nbsp; +${sz.xp_nap} XP/nap</div>
+            </div>
+          </div>
+          <div style="display:flex;gap:6px;align-items:center">
+            ${sd.aktiv && !todayDone
+              ? `<button class="btn btn-sm btn-ok" onclick="szokasAkcio('${sz.nev}','teljesit')">✓ Ma kész</button>`
+              : ''}
+            ${!sd.aktiv
+              ? `<button class="btn btn-sm" onclick="szokasAkcio('${sz.nev}','aktivalas')">Aktivál</button>`
+              : `<button class="btn-ghost" onclick="szokasAkcio('${sz.nev}','deaktivalas')">Leáll</button>`}
+            ${todayDone ? '<span style="color:var(--ok)">✅</span>' : ''}
+          </div>
+        </div>
+        <div class="progress-bar" style="margin-top:10px">
+          <div class="progress-fill" style="width:${pct}%;background:var(--accent)"></div>
+        </div>
+      </div>`;
+  });
+}
+
+function calcStreak(napok) {
+  if (!napok.length) return 0;
+  const sorted = [...napok].sort().reverse();
+  let s = 0, d = new Date();
+  d.setHours(0,0,0,0);
+  for (const n of sorted) {
+    const nd = new Date(n);
+    nd.setHours(0,0,0,0);
+    if (nd.getTime() === d.getTime()) { s++; d.setDate(d.getDate()-1); }
+    else break;
+  }
+  return s;
+}
+
+async function szokasAkcio(nev, akcio) {
+  const r = await fetch('/api/szokas_toggle', {
+    method: 'POST',
+    headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({ nev, akcio })
+  });
+  const res = await r.json();
+  if (res.ok) {
+    await loadData();
+    renderHeader();
+    renderSzokasok();
+    if (res.xp_earn) toast(`🔄 +${res.xp_earn} XP szerzve!`);
+  }
+}
+
+// ── Statisztika ────────────────────────────────────────────────────────────
+function renderStatisztika() {
+  const bej = D.bejegyzesek || {};
+  const napok = Object.keys(bej).sort();
+  const ertekek = napok.map(n => {
+    let s = 0;
+    const b = bej[n];
+    // compute from kategoriak
+    for (const [k,v] of Object.entries(b)) {
+      if (window._FAKTOROK && window._FAKTOROK[k]) s += v * window._FAKTOROK[k][1];
+    }
+    return s;
+  });
+
+  // Összesített stat táblázat
+  const n = napok.length;
+  const osszeg = ertekek.reduce((a,b) => a+b, 0);
+  const atlag = n ? osszeg/n : 0;
+  const legjobb = n ? Math.min(...ertekek) : 0;
+  const legrosszabb = n ? Math.max(...ertekek) : 0;
+  const st = document.getElementById('stat-table');
+  st.innerHTML = `
+    <div class="stat-row"><span>Rögzített napok</span><span><b>${n}</b></span></div>
+    <div class="stat-row"><span>Összes CO₂</span><span><b>${osszeg.toFixed(2)} kg</b></span></div>
+    <div class="stat-row"><span>Napi átlag</span><span><b>${atlag.toFixed(2)} kg</b></span></div>
+    <div class="stat-row"><span>Legjobb nap</span><span style="color:var(--ok)"><b>${legjobb.toFixed(2)} kg</b></span></div>
+    <div class="stat-row"><span>Legrosszabb nap</span><span style="color:var(--danger)"><b>${legrosszabb.toFixed(2)} kg</b></span></div>
+  `;
+
+  // Összehasonlítás chart
+  if (chartCompare) chartCompare.destroy();
+  const ctx2 = document.getElementById('chart-compare').getContext('2d');
+  chartCompare = new Chart(ctx2, {
+    type: 'bar',
+    data: {
+      labels: ['Te (átlag)', 'Párizsi cél', 'Fenntartható', 'EU átlag', 'Globális átlag'],
+      datasets: [{
+        data: [atlag, D.PAR_NAP, D.FENN_NAP, D.EU_NAP, D.GLOB_NAP],
+        backgroundColor: ['#00E5C3','#66BB6A','#42A5F5','#FFA726','#EF5350'],
+        borderRadius: 6,
+      }]
+    },
+    options: {
+      responsive: true,
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { ticks: { color: '#5C7A99', font:{size:10} }, grid: { color: '#1E3A5F' } },
+        y: { ticks: { color: '#5C7A99' }, grid: { color: '#1E3A5F' } }
+      }
+    }
+  });
+}
+
+// ── Hőtérkép ───────────────────────────────────────────────────────────────
+function renderHoterkep() {
+  const bej = D.bejegyzesek || {};
+  const container = document.getElementById('hoterkep-container');
+  const year = new Date().getFullYear();
+  const yearStr = String(year);
+  const cel = D.napi_cel || 10;
+
+  function co2color(v) {
+    if (v === undefined || v === null) return '#152A4A';
+    if (v <= 0) return '#CE93D8';
+    if (v < cel * 0.5) return '#00E676';
+    if (v < cel) return '#FFD54F';
+    if (v < cel * 2) return '#FF7043';
+    return '#FF5252';
+  }
+
+  // Compute daily sums
+  const sums = {};
+  for (const [nap, b] of Object.entries(bej)) {
+    if (!nap.startsWith(yearStr)) continue;
+    let s = 0;
+    for (const [k,v] of Object.entries(b)) {
+      if (window._FAKTOROK && window._FAKTOROK[k]) s += v * window._FAKTOROK[k][1];
+    }
+    sums[nap] = s;
+  }
+
+  // Build grid: 7 rows (days of week), 53 cols (weeks)
+  const jan1 = new Date(year, 0, 1);
+  const startDow = jan1.getDay(); // 0=Sun
+  const monthLabels = Array(53).fill('');
+  let lastMonth = -1;
+  const cells = []; // cells[week][dow]
+  for (let week = 0; week < 53; week++) {
+    cells[week] = [];
+    for (let dow = 0; dow < 7; dow++) {
+      const dayNum = week * 7 + dow - startDow;
+      if (dayNum < 0 || dayNum >= 366) { cells[week][dow] = null; continue; }
+      const d = new Date(year, 0, dayNum + 1);
+      if (d.getFullYear() !== year) { cells[week][dow] = null; continue; }
+      if (d.getMonth() !== lastMonth && dow === 0) {
+        monthLabels[week] = d.toLocaleString('hu', {month:'short'});
+        lastMonth = d.getMonth();
+      }
+      const dateStr = d.toISOString().split('T')[0];
+      cells[week][dow] = dateStr;
+    }
+  }
+
+  // Hónap-feliratok sora
+  let html = '<div style="display:flex;flex-direction:column;gap:3px;overflow-x:auto">';
+  html += '<div style="display:flex;gap:3px;padding-left:26px">';
+  for (let week = 0; week < 53; week++) {
+    html += `<div style="width:14px;font-size:9px;color:var(--muted);flex-shrink:0">${monthLabels[week] || ''}</div>`;
+  }
+  html += '</div>';
+
+  const dowLabels = ['V','H','K','Sz','Cs','P','Szo'];
+  html += '<div style="display:flex;gap:3px">';
+  html += '<div style="display:flex;flex-direction:column;gap:3px;width:22px;flex-shrink:0">';
+  for (let dow = 0; dow < 7; dow++) {
+    html += `<div class="heatmap-label" style="height:14px;line-height:14px">${dowLabels[dow]}</div>`;
+  }
+  html += '</div>';
+  for (let week = 0; week < 53; week++) {
+    html += '<div style="display:flex;flex-direction:column;gap:3px;flex-shrink:0">';
+    for (let dow = 0; dow < 7; dow++) {
+      const dateStr = cells[week][dow];
+      if (dateStr === null) {
+        html += '<div style="width:14px;height:14px"></div>';
+        continue;
+      }
+      const val = sums[dateStr];
+      const col = val !== undefined ? co2color(val) : '#152A4A';
+      const tip = val !== undefined ? `${dateStr}: ${val.toFixed(2)} kg` : dateStr;
+      html += `<div class="heatmap-cell" style="background:${col}" title="${tip}"></div>`;
+    }
+    html += '</div>';
+  }
+  html += '</div></div>';
+  container.innerHTML = html;
+}
+
+// ── Előrejelzés ────────────────────────────────────────────────────────────
+async function renderElojelzes() {
+  const r = await fetch('/api/elojelzes');
+  const res = await r.json();
+  const info = document.getElementById('eloj-info');
+  if (!res.ok) {
+    info.textContent = res.uzenet;
+    return;
+  }
+  const slope = res.slope;
+  info.innerHTML = `Trend: ${slope > 0
+    ? '<span style="color:var(--danger)">📈 Növekvő</span>'
+    : '<span style="color:var(--ok)">📉 Csökkenő</span>'}
+    (${slope > 0 ? '+' : ''}${slope.toFixed(3)} kg/nap)`;
+
+  if (chartEloj) chartEloj.destroy();
+  const ctx = document.getElementById('chart-eloj').getContext('2d');
+  const labels = res.pred.map(x => x[0].slice(5));
+  const values = res.pred.map(x => x[1]);
+  chartEloj = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [{
+        label: 'Előrejelzett kg CO₂',
+        data: values,
+        borderColor: '#CE93D8',
+        backgroundColor: '#CE93D822',
+        fill: true,
+        tension: 0.3,
+      }]
+    },
+    options: {
+      responsive: true,
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { ticks: { color: '#5C7A99', font:{size:10} }, grid: { color: '#1E3A5F' } },
+        y: { ticks: { color: '#5C7A99' }, grid: { color: '#1E3A5F' } }
+      }
+    }
+  });
+}
+
+// ── Kalkulátor ─────────────────────────────────────────────────────────────
+function setupKalkulator() {
+  // Will be set up after KATS loads
+}
+
+function renderKalkulator() {
+  if (document.getElementById('kalk-kategoriak').children.length > 0) return; // already built
+  const container = document.getElementById('kalk-kategoriak');
+  for (const [kNev, kInfo] of Object.entries(KATS)) {
+    let html = `<div class="card2 mb" style="border-left:3px solid ${kInfo.szin}">
+      <h3>${kInfo.ikon} ${kNev}</h3><div class="grid2">`;
+    for (const [eNev, [kulcs, faktor]] of Object.entries(kInfo.elemek)) {
+      html += `
+        <div class="form-group" style="margin-bottom:8px">
+          <label>${eNev} <span class="muted">(${faktor} kg/egység)</span></label>
+          <input type="number" class="num-input kalk-input" data-faktor="${faktor}"
+            min="0" step="0.1" placeholder="0" oninput="updateKalkOsszeg()">
+        </div>`;
+    }
+    html += '</div></div>';
+    container.innerHTML += html;
+  }
+}
+
+function updateKalkOsszeg() {
+  let total = 0;
+  document.querySelectorAll('.kalk-input').forEach(inp => {
+    total += (parseFloat(inp.value)||0) * parseFloat(inp.dataset.faktor);
+  });
+  document.getElementById('kalk-osszeg').textContent = total.toFixed(3);
+}
+
+// ── Napló ──────────────────────────────────────────────────────────────────
+function renderNaplo() {
+  const naplo = D.naplo || {};
+  const lista = document.getElementById('naplo-lista');
+  const napok = Object.keys(naplo).sort().reverse();
+  // Also add today if not present
+  const today = new Date().toISOString().split('T')[0];
+  lista.innerHTML = '';
+  [today, ...napok.filter(n => n !== today)].forEach(nap => {
+    lista.innerHTML += `
+      <div class="naplo-item" onclick="naploSelect('${nap}')">
+        <b>${nap}</b>
+        <div class="muted" style="font-size:0.8rem;margin-top:2px">
+          ${(naplo[nap] || '').slice(0,60) || '(üres)'}
+        </div>
+      </div>`;
+  });
+  naploSelect(naploSelectedDate);
+}
+
+function naploSelect(nap) {
+  naploSelectedDate = nap;
+  document.getElementById('naplo-selected-date').textContent = '📅 ' + nap;
+  document.getElementById('naplo-szoveg').value = (D.naplo || {})[nap] || '';
+}
+
+async function naploMent() {
+  const szoveg = document.getElementById('naplo-szoveg').value;
+  await fetch('/api/naplo_ment', {
+    method: 'POST',
+    headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({ datum: naploSelectedDate, szoveg })
+  });
+  await loadData();
+  renderNaplo();
+  toast('📔 Napló mentve!');
+}
+
+// ── Bolt ───────────────────────────────────────────────────────────────────
+const TEMAK = [
+  { id: null,         nev: "🌑 Alapértelmezett", ar: 0,   leiras: "Az eredeti sötétkék stílus" },
+  { id: "deep_ocean", nev: "🌊 Mélytenger",       ar: 100, leiras: "Óceán ihlette paletta" },
+  { id: "forest",     nev: "🌲 Erdő",             ar: 150, leiras: "Természetes zöld tónusok" },
+  { id: "sunset",     nev: "🌅 Napszálta",         ar: 200, leiras: "Meleg narancssárga árnyalatok" },
+  { id: "arctic",     nev: "❄️ Sarki jég",         ar: 250, leiras: "Fehér és jeges kék" },
+  { id: "galaxy",     nev: "🌌 Galaxis",            ar: 300, leiras: "Sötétlila és csillogó cián" },
+  { id: "ember",      nev: "🔥 Parázs",             ar: 350, leiras: "Vörös és sötét, drámai" },
+];
+
+function renderBolt() {
+  const container = document.getElementById('bolt-temak');
+  const megvett = D.megvett_temak || [];
+  const aktiv = D.aktiv_tema;
+  let html = '';
+  TEMAK.forEach(function(t) {
+    const van = t.id === null || megvett.includes(t.id);
+    const isAktiv = t.id === aktiv || (t.id === null && aktiv === null);
+    const safeId = t.id === null ? '__null__' : t.id;
+    let gombHtml;
+    if (isAktiv) {
+      gombHtml = '<button class="btn btn-sm" style="width:100%;margin-top:10px;background:var(--accent);opacity:0.6;cursor:default" disabled>&#x2705; Aktív téma</button>';
+    } else if (van) {
+      gombHtml = '<button class="btn btn-sm btn-ok bolt-vesz-btn" data-tema-id="' + safeId + '" style="width:100%;margin-top:10px">&#x25B6; Aktiválás</button>';
+    } else {
+      gombHtml = '<button class="btn btn-sm bolt-vesz-btn" data-tema-id="' + safeId + '" style="width:100%;margin-top:10px">&#x1FA99; Megvétel – ' + t.ar + ' érme</button>';
+    }
+    const arHtml = t.ar === 0
+      ? '<span style="color:var(--ok)">Ingyenes</span>'
+      : van ? '<span style="color:var(--ok)">&#x2705; Megvéve</span>'
+      : '<span>&#x1FA99; ' + t.ar + ' érme</span>';
+    html += '<div class="tema-card' + (van ? ' megvett' : '') + (isAktiv ? ' aktiv' : '') + '">'
+      + '<div style="font-size:2rem">' + t.nev.split(' ')[0] + '</div>'
+      + '<div class="tema-name">' + t.nev + '</div>'
+      + '<div class="muted" style="font-size:0.78rem;margin-top:4px">' + (t.leiras || '') + '</div>'
+      + '<div class="tema-ar" style="margin-top:6px">' + arHtml + '</div>'
+      + gombHtml + '</div>';
+  });
+  container.innerHTML = html;
+  // Attach click handlers after DOM is set
+  container.querySelectorAll('.bolt-vesz-btn').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      const rawId = btn.dataset.temaId;
+      boltVesz(rawId === '__null__' ? null : rawId);
+    });
+  });
+}
+
+
+async function boltVesz(tema_id) {
+  const r = await fetch('/api/bolt_vesz', {
+    method: 'POST',
+    headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({ tema_id: tema_id })
+  });
+  const res = await r.json();
+  if (res.ok) {
+    D.aktiv_tema = tema_id;
+    // res.megvett only present on first purchase; preserve existing list otherwise
+    if (res.megvett) D.megvett_temak = res.megvett;
+    // If activating already-owned theme, add to list if missing
+    if (tema_id !== null && !D.megvett_temak.includes(tema_id)) {
+      D.megvett_temak = D.megvett_temak.concat([tema_id]);
+    }
+    if (res.coins !== undefined) D.coins = res.coins;
+    applyTheme(tema_id);
+    renderHeader();
+    renderBolt();
+    toast('\ud83c\udfa8 Téma alkalmazva!');
+  } else {
+    toast('\u274c ' + (res.hiba || 'Hiba'), true);
+  }
+}
+
+// ── Beállítások ────────────────────────────────────────────────────────────
+function renderBeallitas() {
+  document.getElementById('set-napi-cel').value = D.napi_cel || 10;
+}
+
+async function beallitasMent() {
+  const cel = parseFloat(document.getElementById('set-napi-cel').value) || 10;
+  await fetch('/api/beallitas', {
+    method: 'POST',
+    headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({ napi_cel: cel })
+  });
+  await loadData();
+  renderHeader();
+  toast('⚙️ Beállítások mentve!');
+}
+
+// ── Toast ──────────────────────────────────────────────────────────────────
+let toastTimer = null;
+function toast(msg, error=false) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.style.background = error ? 'var(--danger)' : 'var(--ok)';
+  t.style.color = error ? '#fff' : 'var(--bg)';
+  t.style.display = 'block';
+  if (toastTimer) clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => { t.style.display = 'none'; }, 3000);
+}
+
+// ── Build FAKTOROK client-side ──────────────────────────────────────────────
+function buildFaktorok() {
+  window._FAKTOROK = {};
+  for (const [kn, ki] of Object.entries(KATS)) {
+    for (const [en, [k, f]] of Object.entries(ki.elemek)) {
+      window._FAKTOROK[k] = [en, f, kn];
+    }
+  }
+}
+
+// ── Start ──────────────────────────────────────────────────────────────────
+init().then(() => {
+  // If kalkulátor page is shown, renderPage already called renderKalkulator
+});
+
+// ── HETI RIPORT ────────────────────────────────────────────────────────────
+let chartHeti = null;
+async function renderHetiRiport() {
+  document.getElementById('heti-loading').style.display = 'block';
+  document.getElementById('heti-content').style.display = 'none';
+  const r = await fetch('/api/heti_jelentes');
+  const res = await r.json();
+  if (!res.ok) return;
+  document.getElementById('heti-loading').style.display = 'none';
+  document.getElementById('heti-content').style.display = 'block';
+
+  const cel = res.napi_cel || 10;
+  const valtozas = res.valtozas_pct;
+  const valtozasStr = valtozas > 0
+    ? `<span style="color:var(--danger)">📈 +${valtozas}%</span>`
+    : `<span style="color:var(--ok)">📉 ${valtozas}%</span>`;
+
+  document.getElementById('heti-stats').innerHTML = `
+    <div class="card2" style="text-align:center">
+      <div style="font-size:1.5rem">📊</div>
+      <div class="big-num" style="font-size:1.6rem">${res.atlag.toFixed(2)}</div>
+      <div class="label">kg/nap átlag</div>
+    </div>
+    <div class="card2" style="text-align:center">
+      <div style="font-size:1.5rem">↕️</div>
+      <div style="font-size:1.3rem;font-weight:bold;margin:4px 0">${valtozasStr}</div>
+      <div class="label">előző héthez képest</div>
+      <div class="muted" style="font-size:0.75rem">Előző hét: ${res.elozo_atlag.toFixed(2)} kg/nap</div>
+    </div>
+    <div class="card2" style="text-align:center">
+      <div style="font-size:1.5rem">🎯</div>
+      <div class="big-num" style="font-size:1.6rem;color:${res.atlag <= cel ? 'var(--ok)' : 'var(--danger)'}">
+        ${res.atlag <= cel ? '✅' : '⚠️'}
+      </div>
+      <div class="label">${res.atlag <= cel ? 'Cél teljesítve!' : 'Cél felett'}</div>
+    </div>`;
+
+  const napok = res.het_adatok.map(x => x.datum.slice(5)).reverse();
+  const ertekek = res.het_adatok.map(x => x.osszeg).reverse();
+  if (chartHeti) chartHeti.destroy();
+  const ctx = document.getElementById('chart-heti').getContext('2d');
+  chartHeti = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: napok,
+      datasets: [{
+        label: 'kg CO₂',
+        data: ertekek,
+        backgroundColor: ertekek.map(v => v <= cel ? '#00E67644' : '#FF525244'),
+        borderColor: ertekek.map(v => v <= cel ? '#00E676' : '#FF5252'),
+        borderWidth: 2, borderRadius: 4,
+      }, {
+        label: 'Napi cél',
+        data: Array(7).fill(cel),
+        type: 'line',
+        borderColor: '#FFD54F88',
+        borderDash: [5,3],
+        borderWidth: 2,
+        pointRadius: 0,
+        fill: false,
+      }]
+    },
+    options: {
+      responsive: true,
+      plugins: { legend: { labels: { color: '#5C7A99', font:{size:10} } } },
+      scales: {
+        x: { ticks: { color: '#5C7A99' }, grid: { color: '#1E3A5F' } },
+        y: { ticks: { color: '#5C7A99' }, grid: { color: '#1E3A5F' } }
+      }
+    }
+  });
+
+  const katDiv = document.getElementById('heti-katok');
+  katDiv.innerHTML = '';
+  const het_kat = res.het_kat;
+  const maxKat = Math.max(...Object.values(het_kat).map(Math.abs), 0.1);
+  const katColors = {
+    '🚗 Közlekedés': '#EF5350', '🏠 Otthon & Energia': '#42A5F5',
+    '🍽️ Élelmiszer': '#66BB6A', '🛍️ Vásárlás': '#AB47BC',
+    '♻️ Hulladék': '#FFA726', '🌳 Kompenzáció': '#26A69A'
+  };
+  for (const [k, v] of Object.entries(het_kat)) {
+    if (Math.abs(v) < 0.01) continue;
+    const pct = (Math.abs(v) / maxKat * 100).toFixed(1);
+    katDiv.innerHTML += `
+      <div class="kat-bar">
+        <div class="kat-bar-label" style="font-size:0.78rem">${k.replace(/^.*? /, '')}</div>
+        <div style="flex:1;background:var(--border);border-radius:5px;height:8px;overflow:hidden">
+          <div style="width:${pct}%;height:100%;background:${katColors[k]||'var(--accent)'};border-radius:5px"></div>
+        </div>
+        <div class="kat-bar-val">${v.toFixed(2)} kg</div>
+      </div>`;
+  }
+
+  if (res.legjobb) {
+    document.getElementById('heti-legjobb').innerHTML = `
+      <h3 style="color:var(--ok)">🏆 Legjobb nap</h3>
+      <div style="font-size:1.5rem;font-weight:bold;color:var(--ok)">${res.legjobb.datum}</div>
+      <div class="muted">${res.legjobb.osszeg.toFixed(3)} kg CO₂</div>`;
+  }
+  if (res.legrosszabb) {
+    document.getElementById('heti-legrosszabb').innerHTML = `
+      <h3 style="color:var(--danger)">⚠️ Legrosszabb nap</h3>
+      <div style="font-size:1.5rem;font-weight:bold;color:var(--danger)">${res.legrosszabb.datum}</div>
+      <div class="muted">${res.legrosszabb.osszeg.toFixed(3)} kg CO₂</div>`;
+  }
+}
+
+// ── AI TIPPEK ──────────────────────────────────────────────────────────────
+let chartTippekKat = null;
+async function renderTippekPage() {
+  await loadTippek();
+}
+
+async function loadTippek() {
+  document.getElementById('tippek-loading').style.display = 'block';
+  document.getElementById('tippek-content').innerHTML = '';
+  const r = await fetch('/api/tippek_ai', { method: 'POST', headers: {'Content-Type':'application/json'}, body: '{}' });
+  const res = await r.json();
+  document.getElementById('tippek-loading').style.display = 'none';
+  if (!res.ok) return;
+
+  let html = '';
+  if (res.legrosszabb_kat) {
+    html += `<div class="card2 mb" style="border-left:3px solid var(--warn)">
+      <span class="muted" style="font-size:0.82rem">🎯 Fő fókusz a héten:</span>
+      <div style="font-weight:bold;margin-top:4px">${res.legrosszabb_kat}</div>
+    </div>`;
+  }
+  if (res.napok_szama === 0) {
+    html = '<div class="muted" style="text-align:center;padding:30px">Nincs elég adat az elemzéshez. Vigyél be legalább 1 napot!</div>';
+  } else {
+    res.tippek.forEach((t, i) => {
+      html += `<div class="card2 mb" style="display:flex;gap:12px;align-items:flex-start;animation:fadeIn 0.3s ${i*0.1}s both">
+        <span style="font-size:1.5rem">${t.slice(0,2)}</span>
+        <div style="flex:1">${t.slice(2).trim()}</div>
+      </div>`;
+    });
+  }
+  document.getElementById('tippek-content').innerHTML = html;
+
+  const het_kat = res.het_kat_atlag || {};
+  const katNevek = Object.keys(het_kat).map(k => k.replace(/^.*? /, ''));
+  const katErtekek = Object.values(het_kat);
+  const katColors = ['#EF5350','#42A5F5','#66BB6A','#AB47BC','#FFA726','#26A69A'];
+  if (chartTippekKat) chartTippekKat.destroy();
+  const ctx = document.getElementById('chart-tippek-kat').getContext('2d');
+  chartTippekKat = new Chart(ctx, {
+    type: 'doughnut',
+    data: {
+      labels: katNevek,
+      datasets: [{ data: katErtekek.map(v => Math.max(0, v)), backgroundColor: katColors, borderWidth: 0 }]
+    },
+    options: { responsive: true, plugins: { legend: { labels: { color: '#5C7A99', font:{size:11} } } } }
+  });
+
+  document.getElementById('tippek-katstat').innerHTML = `
+    <div class="muted" style="text-align:center;font-size:0.8rem;margin-top:8px">
+      Elemzés ${res.napok_szama} nap alapján
+    </div>`;
+}
+
+// ── KIHÍVÁS OLDAL ─────────────────────────────────────────────────────────
+let chartOsszehasonlitas = null;
+async function renderKihivasPage() {
+  await loadKihivasok();
+  document.getElementById('osszehasonlitas-loading').style.display = 'block';
+  document.getElementById('osszehasonlitas-content').style.display = 'none';
+  const r = await fetch('/api/osszehasonlitas');
+  const res = await r.json();
+  document.getElementById('osszehasonlitas-loading').style.display = 'none';
+  document.getElementById('osszehasonlitas-content').style.display = 'block';
+
+  const pColor = res.percentilis <= 30 ? 'var(--ok)' : res.percentilis <= 60 ? 'var(--warn)' : 'var(--danger)';
+  document.getElementById('osszehasonlitas-stats').innerHTML = `
+    <div class="stat-row"><span>A te átlagod (30 nap)</span><span><b>${res.sajat_atlag.toFixed(2)} kg/nap</b></span></div>
+    <div class="stat-row"><span>Közösség átlaga</span><span><b>${res.kozosseg_atlag.toFixed(2)} kg/nap</b></span></div>
+    <div class="stat-row"><span>Legjobb felhasználó</span><span style="color:var(--ok)"><b>${res.kozosseg_legjobb.toFixed(2)} kg/nap</b></span></div>
+    <div class="stat-row"><span>Helyezésed</span><span style="color:${pColor}"><b>Top ${100-res.percentilis}%</b></span></div>
+    <div class="stat-row"><span>Résztvevők</span><span><b>${res.felhasznalok_szama} fő</b></span></div>
+  `;
+
+  if (chartOsszehasonlitas) chartOsszehasonlitas.destroy();
+  const ctx = document.getElementById('chart-osszehasonlitas').getContext('2d');
+  chartOsszehasonlitas = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: ['Te', 'Közösség átlag', 'Legjobb'],
+      datasets: [{
+        data: [res.sajat_atlag, res.kozosseg_atlag, res.kozosseg_legjobb],
+        backgroundColor: ['#00E5C3aa','#42A5F5aa','#FFD54Faa'],
+        borderColor: ['#00E5C3','#42A5F5','#FFD54F'],
+        borderWidth: 2, borderRadius: 6,
+      }]
+    },
+    options: {
+      responsive: true,
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { ticks: { color: '#5C7A99' }, grid: { color: '#1E3A5F' } },
+        y: { ticks: { color: '#5C7A99' }, grid: { color: '#1E3A5F' } }
+      }
+    }
+  });
+
+  const rr = await fetch('/api/ranglista_json');
+  const rl = await rr.json();
+  const top10 = (rl.lista || []).slice(0, 10);
+  let rHtml = '<table style="width:100%;border-collapse:collapse;font-size:0.88rem">';
+  rHtml += '<tr style="color:var(--muted);font-size:0.75rem"><th style="text-align:left;padding:6px">#</th><th style="text-align:left">Felhasználó</th><th>Rang</th><th>XP</th><th>Streak</th><th>7 napos átlag</th></tr>';
+  top10.forEach((f, i) => {
+    const isSajat = f.nev === rl.sajat;
+    rHtml += `<tr style="${isSajat ? 'background:var(--sel);' : ''}border-bottom:1px solid var(--border)">
+      <td style="padding:8px;color:var(--muted)">${i+1}</td>
+      <td style="font-weight:${isSajat?'bold':'normal'}">${isSajat ? '👤 ' : ''}${f.nev}</td>
+      <td style="font-size:0.78rem">${f.rang}</td>
+      <td style="color:var(--accent)">${f.xp}</td>
+      <td>🔥 ${f.streak}</td>
+      <td style="color:${f.atlag7 <= 10 ? 'var(--ok)' : 'var(--danger)'}">${f.atlag7.toFixed(2)} kg</td>
+    </tr>`;
+  });
+  rHtml += '</table>';
+  document.getElementById('kihivas-ranglista').innerHTML = rHtml;
+}
+
+async function loadKihivasok() {
+  const r = await fetch('/api/kihivasok');
+  const res = await r.json();
+  const card = document.getElementById('kihivas-bejovo-card');
+  const div = document.getElementById('kihivas-bejovo');
+  const lista = (res.lista || []);
+  if (!lista.length) {
+    card.style.display = 'none';
+    return;
+  }
+  card.style.display = 'block';
+  div.innerHTML = lista.map(k => `
+    <div class="card2 mb" style="display:flex;justify-content:space-between;align-items:center;gap:10px">
+      <div>
+        <b>${k.kuldo}</b> kihívott téged ${k.napok} napra!
+        <div class="muted" style="font-size:0.78rem">${k.datum}${k.elfogadva ? ' · ✅ elfogadva' : ''}</div>
+      </div>
+      <div style="display:flex;gap:6px;flex-shrink:0">
+        ${!k.elfogadva ? `<button class="btn btn-sm btn-ok" onclick="kihivasValasz('${k.kulcs}','elfogad')">✓ Elfogad</button>` : ''}
+        <button class="btn btn-sm btn-ghost" onclick="kihivasValasz('${k.kulcs}','elutasit')">✕ Elutasít</button>
+      </div>
+    </div>`).join('');
+}
+
+async function kihivasValasz(kulcs, akcio) {
+  const r = await fetch('/api/kihivas_elfogad', {
+    method: 'POST',
+    headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({ kulcs, akcio })
+  });
+  const res = await r.json();
+  if (res.ok) {
+    toast(akcio === 'elfogad' ? '✅ Kihívás elfogadva!' : 'Kihívás elutasítva');
+    await loadKihivasok();
+  }
+}
+
+async function kihivasKuldes() {
+  const cel = document.getElementById('kihivas-cel').value.trim();
+  const napok = document.getElementById('kihivas-napok').value;
+  if (!cel) { toast('Add meg a felhasználónevet!'); return; }
+  const r = await fetch('/api/kihivas_kuldes', {
+    method: 'POST',
+    headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({ cel, napok: parseInt(napok) })
+  });
+  const res = await r.json();
+  const div = document.getElementById('kihivas-eredmeny');
+  div.style.color = res.ok ? 'var(--ok)' : 'var(--danger)';
+  div.textContent = res.ok ? res.uzenet : res.hiba;
+  if (res.ok) toast('⚔️ Kihívás elküldve!');
+}
+
+// ── CO2 CIMKE ─────────────────────────────────────────────────────────────
+function renderCimkePage() {
+  const container = document.getElementById('cimke-kategoriak');
+  if (container.innerHTML) return; // already built
+  container.innerHTML = '';
+  for (const [kNev, kInfo] of Object.entries(KATS)) {
+    let html = `<div class="card2 mb" style="border-left:3px solid ${kInfo.szin}">
+      <div style="font-weight:bold;margin-bottom:8px;font-size:0.9rem">${kInfo.ikon} ${kNev}</div>
+      <div class="grid2">`;
+    for (const [eNev, [kulcs, faktor]] of Object.entries(kInfo.elemek)) {
+      html += `
+        <div class="form-group" style="margin-bottom:6px">
+          <label style="font-size:0.75rem" title="${faktor>0?'+':''}${faktor} kg CO₂/egység">${eNev}</label>
+          <input type="number" class="num-input cimke-input" data-kulcs="${kulcs}"
+            min="0" step="0.1" placeholder="0" oninput="cimkeElonezet()">
+        </div>`;
+    }
+    html += '</div></div>';
+    container.innerHTML += html;
+  }
+}
+
+function cimkeElonezet() {
+  let total = 0;
+  document.querySelectorAll('.cimke-input').forEach(inp => {
+    const v = parseFloat(inp.value) || 0;
+    const kulcs = inp.dataset.kulcs;
+    if (v && window._FAKTOROK && window._FAKTOROK[kulcs]) {
+      total += v * window._FAKTOROK[kulcs][1];
+    }
+  });
+  // live preview
+}
+
+async function cimkeGeneral() {
+  const kulcsok = {};
+  document.querySelectorAll('.cimke-input').forEach(inp => {
+    const v = parseFloat(inp.value) || 0;
+    if (v) kulcsok[inp.dataset.kulcs] = v;
+  });
+  if (!Object.keys(kulcsok).length) {
+    document.getElementById('cimke-eredmeny').innerHTML = '<div class="muted" style="text-align:center;padding:30px">Add meg legalább egy értéket!</div>';
+    return;
+  }
+  const r = await fetch('/api/co2_cimke', {
+    method: 'POST',
+    headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({ kulcsok })
+  });
+  const res = await r.json();
+  if (!res.ok) return;
+
+  const szinFok = res.fenn_pct <= 50 ? 'var(--ok)' : res.fenn_pct <= 150 ? 'var(--warn)' : 'var(--danger)';
+  const betu = res.fenn_pct <= 50 ? 'A' : res.fenn_pct <= 100 ? 'B' : res.fenn_pct <= 150 ? 'C' : res.fenn_pct <= 200 ? 'D' : 'E';
+
+  let html = `
+    <div style="border-radius:12px;padding:20px;border:2px solid ${szinFok};background:var(--card2)">
+      <div style="display:flex;align-items:center;gap:16px;margin-bottom:16px">
+        <div style="width:56px;height:56px;border-radius:50%;background:${szinFok};display:flex;align-items:center;justify-content:center;font-size:1.8rem;font-weight:900;color:var(--bg)">${betu}</div>
+        <div>
+          <div style="font-size:2rem;font-weight:bold;color:${szinFok}">${res.osszeg.toFixed(3)}<span style="font-size:1rem"> kg CO₂</span></div>
+          <div class="muted" style="font-size:0.82rem">Összesített kibocsátás</div>
+        </div>
+      </div>
+      <div style="background:var(--card);border-radius:8px;padding:12px;margin-bottom:12px">
+        <div style="font-size:0.75rem;color:var(--muted);margin-bottom:8px;font-weight:bold;letter-spacing:0.05em">ÖSSZEHASONLÍTÁS</div>
+        ${renderCimkeSav('Fenntartható cél', res.fenn_pct, '#26A69A', 2.1)}
+        ${renderCimkeSav('Párizsi egyezmény', res.par_pct, '#66BB6A', 4.1)}
+        ${renderCimkeSav('EU átlag', res.eu_pct, '#42A5F5', 21.9)}
+      </div>
+      <div>
+        <div style="font-size:0.75rem;color:var(--muted);margin-bottom:8px;font-weight:bold;letter-spacing:0.05em">RÉSZLETEK</div>
+        ${res.reszletek.map(rd => `
+          <div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid var(--border);font-size:0.82rem">
+            <span style="color:var(--text)">${rd.nev}</span>
+            <span style="color:${rd.co2 >= 0 ? 'var(--danger)' : 'var(--ok)'}">
+              ${rd.co2 >= 0 ? '+' : ''}${rd.co2} kg
+            </span>
+          </div>`).join('')}
+      </div>
+    </div>`;
+  document.getElementById('cimke-eredmeny').innerHTML = html;
+}
+
+function renderCimkeSav(label, pct, color, ref) {
+  const width = Math.min(100, pct);
+  return `<div style="margin-bottom:8px">
+    <div style="display:flex;justify-content:space-between;font-size:0.78rem;margin-bottom:3px">
+      <span style="color:var(--muted)">${label} (${ref} kg/nap)</span>
+      <span style="color:${pct > 100 ? 'var(--danger)' : 'var(--ok)'}"><b>${pct.toFixed(0)}%</b></span>
+    </div>
+    <div style="background:var(--border);border-radius:4px;height:7px">
+      <div style="width:${width}%;background:${color};height:100%;border-radius:4px;transition:width 0.5s"></div>
+    </div>
+  </div>`;
+}
+
+</script>
+</body>
+</html>
